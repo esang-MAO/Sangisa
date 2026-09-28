@@ -32,8 +32,9 @@ No install needed:
 The repo is public, so the song link you paste shows in the run log, and any signed-in GitHub user can download the
 artifact until it expires after a day. Only use audio you own or have permission to sample.
 
-One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**. The `Pages` workflow then
-publishes `site/` on every push to `main`.
+On every push to `main`, the `Pages` workflow builds the demo kit and publishes `site/` to the `gh-pages` branch.
+One-time setup: **Settings → Pages → Build and deployment → Source: Deploy from a branch**, then pick `gh-pages` and
+`/ (root)`. The branch appears after the first `Pages` run.
 
 ## Quick start
 
