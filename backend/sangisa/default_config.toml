@@ -1,0 +1,66 @@
+# Sangisa default configuration.
+# Copy this file and pass it with `sangisa --config my.toml`; any key you set
+# overrides the default, anything you leave out keeps the value below.
+
+[ingest]
+sample_rate = 44100
+bit_depth = 24
+channels = 2
+max_duration_s = 600          # reject inputs longer than 10 minutes
+allow_direct_urls = true      # plain audio file links (a .wav / .mp3 URL)
+allow_streaming_links = false # yt-dlp downloads; off by default (see spec: Legal guardrails)
+
+[separation]
+backend = "audio-separator"
+model = "htdemucs_ft.yaml"
+model_dir = "~/.cache/sangisa/models"
+
+[analysis]
+min_bpm = 70.0
+max_bpm = 180.0
+
+[kit]
+pad_count = 16
+backups_per_stem = 20
+
+# Pads are filled in this order, starting at pad 1 (bottom-left).
+[kit.pad_split]
+drums = 6
+vocals = 4
+bass = 3
+other = 3
+
+[scoring.weights]
+isolation = 0.30
+clarity = 0.20
+loudness = 0.15
+loopability = 0.20  # only applies to loops; ignored (and re-weighted) for one-shots
+uniqueness = 0.15
+
+[scoring]
+# Timbre similarity (0-1, MFCC-based) above which two candidates count as duplicates.
+duplicate_similarity = 0.97
+min_rms_dbfs = -50.0
+max_clipped_fraction = 0.001
+
+[extract]
+one_shot_max_s = 1.5
+one_shot_min_s = 0.08        # drum hits
+note_min_s = 0.15            # bass notes and chord stabs
+tail_trim_db = 50.0          # one-shots end once they fall this far below their peak
+phrase_min_s = 0.6
+phrase_max_s = 8.0
+silence_top_db = 35.0
+drum_loop_bars = [1, 2]
+bass_loop_bars = [1, 2, 4]
+other_loop_bars = [2, 4]
+vocal_chop_beats = [1, 2]
+max_candidates_per_kind = 400
+
+[render]
+fade_in_ms = 2.0
+fade_out_ms = 5.0
+loop_fade_ms = 2.0
+normalize = true
+normalize_dbfs = -1.0
+zero_crossing_window_ms = 2.0
