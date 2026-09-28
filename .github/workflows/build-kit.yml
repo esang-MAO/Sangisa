@@ -1,0 +1,110 @@
+# Runs the full Sangisa pipeline (with real HT-Demucs stem separation) on a song
+# you link to, and hands back the kit as a downloadable artifact. Open the
+# artifact zip in the kit viewer on this repo's GitHub Pages site.
+#
+# Actions -> Build a kit -> Run workflow.
+name: Build a kit
+
+on:
+  workflow_dispatch:
+    inputs:
+      audio_url:
+        description: Direct link to an audio file (WAV, AIFF, FLAC, MP3, M4A). Dropbox links need ?dl=1.
+        required: true
+        type: string
+      rights:
+        description: I own this audio or have the rights to sample it.
+        required: true
+        type: boolean
+        default: false
+      model:
+        description: Separation model
+        type: choice
+        default: htdemucs_ft.yaml
+        options:
+          - htdemucs_ft.yaml
+          - htdemucs.yaml
+          - htdemucs_6s.yaml
+      pads:
+        description: Pad split (must add up to 16, 32 or 64)
+        type: string
+        default: drums=6,vocals=4,bass=3,other=3
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check rights confirmation
+        if: ${{ !inputs.rights }}
+        run: |
+          echo "::error::Tick 'I own this audio or have the rights to sample it' to build a kit."
+          exit 1
+
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
+
+      - name: Install Sangisa with CPU PyTorch
+        run: |
+          uv venv
+          uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+          uv pip install -e ".[separation]"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/sangisa/models
+          key: sangisa-models-${{ inputs.model }}
+
+      - name: Download the song
+        env:
+          AUDIO_URL: ${{ inputs.audio_url }}
+        run: |
+          name=$(python3 -c 'import os, sys, urllib.parse as u; p = u.unquote(u.urlparse(sys.argv[1]).path); print(os.path.basename(p) or "song")' "$AUDIO_URL")
+          mkdir -p input
+          curl -fsSL --max-filesize 300000000 -o "input/$name" "$AUDIO_URL"
+          echo "SONG=input/$name" >> "$GITHUB_ENV"
+          ls -la input
+
+      - name: Build the kit (stem separation takes 10-15 minutes on CPU)
+        env:
+          MODEL: ${{ inputs.model }}
+          PADS: ${{ inputs.pads }}
+        run: .venv/bin/sangisa "$SONG" --out job --i-have-rights --model "$MODEL" --pads "$PADS"
+
+      - name: Package the kit
+        run: |
+          mkdir kit
+          cp job/kit.json job/analysis.json kit/
+          cp -r job/slices kit/slices
+
+      - name: Summary
+        env:
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+        run: |
+          .venv/bin/python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os
+          kit = json.load(open("kit/kit.json"))
+          a = kit["analysis"]
+          by_id = {s["id"]: s for s in kit["slices"]}
+          print(f"## {kit['kit_name']}\n")
+          print(f"{a['bpm']:.1f} BPM · {a.get('key') or 'key unknown'} · {len(kit['slices'])} slices\n")
+          print("| Pad | Slice | Length | Score |\n| --- | --- | --- | --- |")
+          for p in kit["pads"]:
+              s = by_id.get(p["slice_id"])
+              if s:
+                  print(f"| {p['pad']} | {s['label']} | {s['source_end_s'] - s['source_start_s']:.2f}s | {s['score']:.2f} |")
+          viewer = f"https://{os.environ['OWNER'].lower()}.github.io/{os.environ['REPO']}/"
+          print(f"\nDownload the **sangisa-kit** artifact below and drop the zip onto the [kit viewer]({viewer}).")
+          print("\nThe artifact is deleted after 1 day.")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sangisa-kit
+          path: kit/
+          retention-days: 1

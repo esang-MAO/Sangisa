@@ -19,6 +19,22 @@ See [docs/SPEC.md](docs/SPEC.md) for the full build spec.
 Milestone 1 (the pipeline CLI) is in place: song in, 16 trimmed and labeled slices plus `kit.json` out.
 The exporters, API and web UI come next (see the build order in the spec).
 
+## Try it in the browser (GitHub Pages)
+
+No install needed:
+
+1. **Kit viewer:** <https://esang-mao.github.io/Sangisa/> shows a demo kit built by the real pipeline from a generated song.
+   You can play the pads (mouse, touch or keys `Z X C V` … `1 2 3 4`), inspect scores, and swap backups onto pads.
+2. **Build a kit from your own song:** go to **Actions → Build a kit → Run workflow**. Paste a direct link to an audio
+   file, tick the rights box, and run it. Separation runs on GitHub's CPUs and takes about 15 minutes.
+3. Download the **sangisa-kit** artifact from the finished run and drop the zip onto the viewer.
+
+The repo is public, so the song link you paste shows in the run log, and any signed-in GitHub user can download the
+artifact until it expires after a day. Only use audio you own or have permission to sample.
+
+One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**. The `Pages` workflow then
+publishes `site/` on every push to `main`.
+
 ## Quick start
 
 Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), and ffmpeg (recommended; without it only WAV, AIFF and FLAC are read).
@@ -86,6 +102,8 @@ backend/sangisa/
   worker/extractors/   per-stem candidate finders: drums, bass, vocals, other
   worker/scoring.py    isolation, clarity, loudness, loopability, uniqueness
   exporters/           Milestones 2-4
+site/                  static kit viewer published to GitHub Pages
+scripts/build_demo.py  builds the viewer's demo kit
 tests/                 pytest, on a generated 16-bar song (no copyrighted audio)
 ```
 

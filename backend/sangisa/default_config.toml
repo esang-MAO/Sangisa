@@ -22,6 +22,8 @@ max_bpm = 180.0
 [kit]
 pad_count = 16
 backups_per_stem = 20
+# Skip candidates scoring below this fraction of their stem's best when filling pads.
+min_relative_score = 0.6
 
 # Pads are filled in this order, starting at pad 1 (bottom-left).
 [kit.pad_split]

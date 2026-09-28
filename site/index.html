@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sangisa Kit Viewer</title>
+  <meta name="description" content="Audition and review a Sangisa sample kit in the browser.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect x='1' y='1' width='6' height='6' rx='1.5' fill='%23f28c38'/><rect x='9' y='1' width='6' height='6' rx='1.5' fill='%234f8ef7'/><rect x='1' y='9' width='6' height='6' rx='1.5' fill='%23e05aa8'/><rect x='9' y='9' width='6' height='6' rx='1.5' fill='%233fb67f'/></svg>">
+  <link rel="stylesheet" href="style.css">
+  <script src="vendor/jszip-3.10.1.min.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <div>
+        <h1>Sangisa</h1>
+        <p class="tagline">Take a song apart. Make it anew.</p>
+      </div>
+    </div>
+    <nav class="loaders">
+      <button id="load-demo" class="btn primary">Open demo kit</button>
+      <label class="btn">Open kit .zip<input id="zip-input" type="file" accept=".zip,application/zip" hidden></label>
+      <label class="btn">Open kit folder<input id="dir-input" type="file" webkitdirectory hidden></label>
+    </nav>
+  </header>
+
+  <main>
+    <section id="welcome" class="welcome">
+      <div class="drop" id="drop">
+        <p class="drop-title">Drop a kit here</p>
+        <p>A kit is the <code>kit.json</code> + <code>slices/</code> folder the <code>sangisa</code> CLI writes, or the
+          zip the <b>Build a kit</b> GitHub Action produces. Everything stays in your browser.</p>
+      </div>
+      <ol class="steps">
+        <li><b>Try the demo.</b> A kit built by the real pipeline from a generated 16-bar song (no copyrighted audio).</li>
+        <li><b>Build your own.</b> In the repo, open <a id="action-link" href="#">Actions → Build a kit</a>, choose
+          <i>Run workflow</i>, and paste a direct link to a song you have the rights to. It takes about 15 minutes on
+          GitHub's CPUs.</li>
+        <li><b>Review it here.</b> Download the <code>sangisa-kit</code> artifact from the finished run and drop the
+          zip onto this page.</li>
+      </ol>
+    </section>
+
+    <section id="kit" class="kit" hidden>
+      <div class="kit-head">
+        <div>
+          <h2 id="kit-name"></h2>
+          <p id="kit-meta" class="meta"></p>
+        </div>
+        <div class="kit-actions">
+          <div id="banks" class="banks" role="tablist"></div>
+          <button id="stop-all" class="btn small">Stop all</button>
+          <button id="save-json" class="btn small">Save kit.json</button>
+        </div>
+      </div>
+
+      <div class="workspace">
+        <div>
+          <div id="grid" class="grid" aria-label="Pads, pad 1 is bottom-left"></div>
+          <p class="hint">Tap a pad to play it. Keys: <kbd>Z X C V</kbd> bottom row … <kbd>1 2 3 4</kbd> top row. Loops
+            keep playing until you tap them again.</p>
+        </div>
+        <aside id="detail" class="detail"></aside>
+      </div>
+
+      <div class="timeline-wrap">
+        <div class="timeline-head">
+          <h3>Every candidate in the song</h3>
+          <p class="meta">Solid marks are on pads, faint ones are backups. Click one to hear it, then
+            <b>Put on pad</b> to swap it onto the selected pad.</p>
+        </div>
+        <div id="timeline" class="timeline"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>Releasing music with uncleared samples can require permission from the rights holders. Only build kits from
+      audio you own or have permission to sample.</p>
+  </footer>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

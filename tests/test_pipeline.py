@@ -51,6 +51,11 @@ def test_kit_json_is_valid_and_complete(built_job: Job):
     # Standard drum layout on the bottom row: kick, snare, hat, perc-or-next.
     cats = [s.category for _, s in kit.pad_slices()][:3]
     assert cats == ["kick", "snare", "hat"]
+    # No junk on pads: every pad is within reach of its stem's best candidate.
+    for stem in {s.stem for s in kit.slices}:
+        on_pads = [s.score for _, s in kit.pad_slices() if s.stem == stem]
+        best = max(s.score for s in kit.slices if s.stem == stem)
+        assert all(score >= 0.6 * best for score in on_pads)
     # Backups are offered as swaps.
     assert len(kit.slices) > 16
     assert kit.analysis.bpm == pytest.approx(120, abs=0.5)
