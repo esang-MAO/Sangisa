@@ -69,8 +69,13 @@ def choose_pads(cands: list[Candidate], cfg: Config) -> tuple[list[Candidate | N
     used: set[str] = set()
     pads: list[Candidate | None] = []
 
+    floor = cfg["kit"]["min_relative_score"]
     for stem, count in split.items():
         reps = [c for c in by_score if c.stem == stem and c.representative]
+        # A category only earns a pad if its best is in the same league as the stem's best,
+        # so a near-silent "perc" doesn't displace a second good kick.
+        if reps:
+            reps = [c for c in reps if c.score >= floor * reps[0].score]
         order = CATEGORY_ORDER.get(stem) or sorted({c.category for c in reps})
         queues = {cat: [c for c in reps if c.category == cat] for cat in order}
         picked: list[Candidate] = []
