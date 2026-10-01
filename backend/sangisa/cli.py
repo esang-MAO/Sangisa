@@ -25,7 +25,8 @@ def parse_split(text: str) -> dict[str, int]:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="sangisa",
-        description="Take a song apart and turn it into a sample pack.",
+        description="Take a song apart and turn it into a sample pack. "
+                    "Run `sangisa serve` to use it from the browser instead.",
     )
     p.add_argument("input", nargs="?", help="audio file (WAV, AIFF, FLAC, MP3, M4A) or direct audio URL")
     p.add_argument("--out", "-o", required=True, help="job folder to write into (reused on re-runs)")
@@ -43,7 +44,38 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def build_serve_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="sangisa serve",
+        description="Run Sangisa as a local web app: drop songs into the browser, get kits back.",
+    )
+    p.add_argument("--port", type=int, default=8765)
+    p.add_argument("--lan", action="store_true",
+                   help="also accept phones and tablets on the same Wi-Fi (they need the printed key)")
+    p.add_argument("--jobs-dir", default="~/.sangisa/jobs", help="where uploaded songs and kits are kept")
+    p.add_argument("--config", "-c", help="TOML file overriding the defaults")
+    return p
+
+
+def serve_main(argv: list[str]) -> int:
+    from pathlib import Path
+
+    from sangisa.server import serve
+
+    args = build_serve_parser().parse_args(argv)
+    try:
+        cfg = load_config(args.config)
+    except (OSError, ValueError) as exc:
+        print(f"sangisa: {exc}", file=sys.stderr)
+        return 2
+    serve(port=args.port, lan=args.lan, jobs_dir=Path(args.jobs_dir), config=cfg)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] == "serve":
+        return serve_main(argv[1:])
     args = build_parser().parse_args(argv)
     overrides: dict = {}
     if args.model:

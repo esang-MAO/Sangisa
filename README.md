@@ -17,24 +17,46 @@ See [docs/SPEC.md](docs/SPEC.md) for the full build spec.
 ## Status
 
 Milestone 1 (the pipeline CLI) is in place: song in, 16 trimmed and labeled slices plus `kit.json` out.
-The exporters, API and web UI come next (see the build order in the spec).
+A local web app (`sangisa serve`) lets you drop a song into the browser and get the kit back.
+The exporters come next (see the build order in the spec).
 
-## Try it in the browser (GitHub Pages)
+## Make kits from the browser
 
-No install needed:
+Songs are processed by Sangisa running on your own computer, so they never leave your devices.
 
-1. **Kit viewer:** <https://esang-mao.github.io/Sangisa/> shows a demo kit built by the real pipeline from a generated song.
-   You can play the pads (mouse, touch or keys `Z X C V` … `1 2 3 4`), inspect scores, and swap backups onto pads.
-2. **Build a kit from your own song:** go to **Actions → Build a kit → Run workflow**. Paste a direct link to an audio
-   file, tick the rights box, and run it. Separation runs on GitHub's CPUs and takes about 15 minutes.
-3. Download the **sangisa-kit** artifact from the finished run and drop the zip onto the viewer.
+1. Once: install [uv](https://docs.astral.sh/uv/getting-started/installation/) (and ffmpeg for MP3/M4A), then:
+   ```sh
+   git clone https://github.com/esang-MAO/Sangisa
+   cd Sangisa
+   uv sync --extra separation        # or --extra separation-gpu on an NVIDIA machine
+   ```
+2. Each time, in the `Sangisa` folder:
+   ```sh
+   uv run sangisa serve
+   ```
+   Open <http://localhost:8765>, drop in a song, tick the rights box, and choose **Make the kit**. The app shows each
+   stage as it runs, then opens the pad grid. **Your kits** keeps every kit you've made, and **Download kit .zip** saves
+   one. The <https://esang-mao.github.io/Sangisa/> page also connects to it in Chrome, Edge and Firefox.
+3. From a phone or tablet on the same Wi-Fi, start it with `uv run sangisa serve --lan` and scan the QR code it
+   prints. Other devices need the access key in that link; other websites can't use the server.
 
-The repo is public, so the song link you paste shows in the run log, and any signed-in GitHub user can download the
-artifact until it expires after a day. Only use audio you own or have permission to sample.
+Stem separation takes about 1–3 minutes per song on an Apple Silicon Mac or NVIDIA GPU, 10–15 minutes on a CPU.
+Kits are kept in `~/.sangisa/jobs` (change it with `--jobs-dir`). Making kits on a phone without a computer isn't
+supported yet.
+
+## Kit viewer on GitHub Pages
+
+<https://esang-mao.github.io/Sangisa/> also shows a demo kit built by the real pipeline from a generated song, and opens
+any kit `.zip`. Play the pads (mouse, touch or keys `Z X C V` … `1 2 3 4`), inspect scores, and swap backups onto pads.
+
+No computer handy? **Actions → Build a kit → Run workflow** runs the pipeline on GitHub's CPUs (about 15 minutes) from
+a direct link to an audio file. Download the **sangisa-kit** artifact and drop the zip onto the viewer. The repo is
+public, so the song link shows in the run log and any signed-in GitHub user can download the artifact until it expires
+after a day. Only use audio you own or have permission to sample.
 
 On every push to `main`, the `Pages` workflow builds the demo kit and publishes `site/` to the `gh-pages` branch.
 One-time setup: **Settings → Pages → Build and deployment → Source: Deploy from a branch**, then pick `gh-pages` and
-`/ (root)`. The branch appears after the first `Pages` run.
+`/ (root)`.
 
 ## Quick start
 
@@ -99,6 +121,7 @@ kit/
 ```text
 backend/sangisa/
   cli.py  pipeline.py  job.py  config.py  schema.py  audio.py
+  server.py            `sangisa serve`: upload API, background worker, serves site/
   worker/stages/       ingest, separate, analyze, pick, render (one module each)
   worker/extractors/   per-stem candidate finders: drums, bass, vocals, other
   worker/scoring.py    isolation, clarity, loudness, loopability, uniqueness

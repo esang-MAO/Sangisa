@@ -16,11 +16,16 @@ def default_config() -> Config:
     return tomllib.loads(text)
 
 
+# Tables an override replaces whole instead of merging into: a pad split of
+# drums=8,bass=8 means exactly that, not those two on top of the defaults.
+REPLACED_TABLES = {"pad_split"}
+
+
 def merge(base: Config, override: Config) -> Config:
     """Return a copy of ``base`` with ``override`` merged in, recursing into tables."""
     out = copy.deepcopy(base)
     for key, value in override.items():
-        if isinstance(value, dict) and isinstance(out.get(key), dict):
+        if isinstance(value, dict) and isinstance(out.get(key), dict) and key not in REPLACED_TABLES:
             out[key] = merge(out[key], value)
         else:
             out[key] = copy.deepcopy(value)

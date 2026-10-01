@@ -81,10 +81,16 @@ function openKit(kit, read) {
     raw: new Map(), buffers: new Map(),
   });
   state.byId = new Map(kit.slices.map((s) => [s.id, s]));
-  $("#welcome").hidden = true;
-  $("#kit").hidden = false;
+  showView("kit");
   renderAll();
   preloadBank();
+}
+
+// One of: "welcome" (make or open a kit), "progress" (a kit being made), "kit" (the pad grid).
+function showView(name) {
+  for (const id of ["welcome", "progress", "kit"]) $(`#${id}`).hidden = id !== name;
+  if (name !== "kit") stopAll();
+  window.scrollTo({ top: 0 });
 }
 
 // ---------------------------------------------------------------- audio
@@ -425,6 +431,27 @@ async function downloadSlice(slice) {
   }
 }
 
+async function downloadKitZip() {
+  if (!window.JSZip) throw new Error("The zip writer didn't load.");
+  const { kit } = state;
+  const btn = $("#save-zip");
+  btn.disabled = true;
+  try {
+    const zip = new JSZip();
+    zip.file("kit.json", JSON.stringify(kit, null, 2) + "\n");
+    let done = 0;
+    for (const s of kit.slices) {
+      zip.file(s.file, await rawFor(s));
+      btn.textContent = `Packing ${++done}/${kit.slices.length}…`;
+    }
+    const blob = await zip.generateAsync({ type: "blob", compression: "STORE" });
+    saveBlob(blob, `${(kit.kit_name || "Sangisa kit").replace(/[^\w\- ]+/g, "_")}.zip`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Download kit .zip";
+  }
+}
+
 function toast(msg) {
   const t = $("#toast");
   t.textContent = msg;
@@ -450,6 +477,8 @@ $("#load-demo").onclick = guard(loadDemo);
 $("#zip-input").onchange = guard((e) => e.target.files[0] && loadZip(e.target.files[0]));
 $("#dir-input").onchange = guard((e) => e.target.files.length && loadFolder(e.target.files));
 $("#stop-all").onclick = stopAll;
+$("#back-home").onclick = () => { showView("welcome"); refreshRecent(); };
+$("#save-zip").onclick = guard(downloadKitZip);
 $("#save-json").onclick = () =>
   saveBlob(new Blob([JSON.stringify(state.kit, null, 2) + "\n"], { type: "application/json" }), "kit.json");
 
@@ -461,9 +490,12 @@ window.addEventListener("drop", guard(async (e) => {
   e.preventDefault();
   dragDepth = 0;
   document.body.classList.remove("dragging");
-  const file = [...(e.dataTransfer?.files || [])].find((f) => /\.zip$/i.test(f.name));
-  if (!file) throw new Error("Drop the kit as a .zip, or use Open kit folder.");
-  await loadZip(file);
+  const files = [...(e.dataTransfer?.files || [])];
+  const zip = files.find((f) => /\.zip$/i.test(f.name));
+  if (zip) return loadZip(zip);
+  const song = files.find(isAudioFile);
+  if (song) return chooseSong(song); // make.js
+  throw new Error("Drop a song to make a kit, or a kit .zip to open one.");
 }));
 
 window.addEventListener("keydown", (e) => {

@@ -28,3 +28,8 @@ def test_merge_does_not_mutate():
     base = {"a": {"b": 1}}
     merge(base, {"a": {"b": 2}})
     assert base == {"a": {"b": 1}}
+
+
+def test_pad_split_override_replaces_the_default():
+    cfg = load_config(overrides={"kit": {"pad_split": {"drums": 8, "bass": 8}}})
+    assert cfg["kit"]["pad_split"] == {"drums": 8, "bass": 8}
