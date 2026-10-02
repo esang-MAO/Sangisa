@@ -10,7 +10,7 @@ const MODEL_BASE = "models/htdemucs/";
 
 const server = { base: null, info: null, key: null };
 const make = { song: null, tracking: null };
-const ai = { meta: null }; // the on-device AI model's description, when this site has it
+const ai = { meta: null, outdated: false }; // the on-device AI model's description, when this site has it
 
 const store = {
   get(k) { try { return localStorage.getItem(`sangisa.${k}`); } catch { return null; } },
@@ -171,7 +171,8 @@ function updateMode() {
   device.disabled = noDevice;
   device.closest(".choice").classList.toggle("disabled", noDevice);
   if (noDevice && route() === "device") setWhere("computer");
-  if (!noDevice && store.get("route") === "device" && route() !== "device") setWhere("device");
+  // Back to the device when it's available again and the user hasn't chosen the computer.
+  if (!noDevice && (store.get("route") || "device") === "device" && route() !== "device") setWhere("device");
 
   const local = route() === "device";
   const aiInput = document.querySelector('input[name="engine"][value="ai"]');
@@ -179,7 +180,8 @@ function updateMode() {
   $("#engine-ai").classList.toggle("disabled", !ai.meta);
   $("#engine-ai-meta").textContent = ai.meta
     ? `Drums, bass, vocals and the rest, cleanly separated. Downloads the model once (${Math.round(ai.meta.weights_mb)} MB). Fast with a GPU; several minutes on older phones.`
-    : "Not set up on this site yet (the model hasn't been published).";
+    : ai.outdated ? "The model on this site needs updating: run the Export AI model workflow again."
+      : "Not set up on this site yet (the model hasn't been published).";
   if (!ai.meta) setEngine("quick");
   else if (split) setEngine("ai");
   $("#engine").hidden = !local || split;
@@ -287,10 +289,46 @@ async function keepAwake() {
   try { return await navigator.wakeLock?.request("screen"); } catch { return null; }
 }
 
+/**
+ * Run one engine worker to its end. onMessage sees progress messages; resolves with the final one
+ * ("done" or "stems"). The worker is closed afterwards, which frees all of its memory.
+ */
+function runWorker(msg, transfer, onMessage) {
+  const worker = new Worker(new URL("engine/worker.js", document.baseURI), { type: "module" });
+  make.worker = worker;
+  return new Promise((resolve, reject) => {
+    make.cancel = () => reject(new Error("cancelled"));
+    worker.onmessage = (e) => {
+      const m = e.data;
+      if (m.type === "done" || m.type === "stems") resolve(m);
+      else if (m.type === "error") reject(new Error(m.message));
+      else onMessage(m);
+    };
+    worker.onerror = (e) => reject(new Error(e.message || "The engine stopped unexpectedly (out of memory?)."));
+    worker.postMessage(msg, transfer);
+  }).finally(() => {
+    worker.terminate();
+    if (make.worker === worker) make.worker = null;
+  });
+}
+
+// If the browser closes the page mid-way (iOS does when a page uses too much memory), nothing
+// runs to report it, so the last step is kept and shown next time.
+const crumb = {
+  set(info) { store.set("ai-step", JSON.stringify({ ...info, at: Date.now() })); },
+  clear() { store.set("ai-step", null); },
+  take() {
+    const raw = store.get("ai-step");
+    store.set("ai-step", null);
+    try { return raw ? JSON.parse(raw) : null; } catch { return null; }
+  },
+};
+
 async function startLocal(song) {
   const pads = Object.fromEntries($("#pad-split").value.split(",").map((p) => p.split("=")).map(([k, v]) => [k, Number(v)]));
   const split = mode() === "split";
   const separator = split ? "ai" : engine();
+  const includeStems = split && $("#split-stems").checked;
   if (!split) store.set("pads", $("#pad-split").value);
   store.set("engine", ai.meta ? engine() : null);
   const now = () => Date.now() / 1000;
@@ -309,42 +347,53 @@ async function startLocal(song) {
   const ticker = setInterval(() => renderProgress(rec), 1000);
   const lock = await keepAwake();
   make.tracking = "local";
-  const fail = (msg) => {
-    rec.status = "failed"; rec.error = msg;
+  const what = split ? "acapella + instrumental" : "kit";
+  const decodeStart = now();
+  const onMessage = (m, skip = []) => {
+    if (m.type === "step") {
+      crumb.set({ step: m.step, what, minutes: rec.minutes, device: rec.device });
+      return;
+    }
+    if (m.type === "device") { rec.device = m.device; return; }
+    if (m.type !== "progress" || skip.includes(m.stage)) return;
+    if (m.status === "start") Object.assign(rec, { stage: m.stage, stage_label: rec.labels[m.stage], stage_started: now(), value: null });
+    if (m.status === "progress") rec.value = m.value;
+    if (m.status === "note") rec.note = m.note;
+    if (m.status === "done") {
+      rec.stages[m.stage] = m.stage === "ingest" ? now() - decodeStart : m.value;
+      rec.value = null;
+      if (m.stage === "separate") rec.note = "";
+    }
     renderProgress(rec);
   };
   try {
-    const decodeStart = now();
-    const { channels, sr, sha256 } = await decodeSong(song);
+    let { channels, sr, sha256 } = await decodeSong(song);
     if (make.tracking !== "local") return; // the user went back while it was decoding
-    const worker = new Worker(new URL("engine/worker.js", document.baseURI), { type: "module" });
-    make.worker = worker;
-    const result = await new Promise((resolve, reject) => {
-      make.cancel = () => reject(new Error("cancelled"));
-      worker.onmessage = (e) => {
-        const m = e.data;
-        if (m.type === "progress") {
-          if (m.status === "start") Object.assign(rec, { stage: m.stage, stage_label: rec.labels[m.stage], stage_started: now(), value: null });
-          if (m.status === "progress") rec.value = m.value;
-          if (m.status === "note") rec.note = m.note;
-          if (m.status === "done") {
-            rec.stages[m.stage] = m.stage === "ingest" ? now() - decodeStart : m.value;
-            rec.value = null;
-            if (m.stage === "separate") rec.note = "";
-          }
-          renderProgress(rec);
-        } else if (m.type === "device") {
-          rec.device = m.device;
-        } else if (m.type === "done") resolve(m);
-        else if (m.type === "error") reject(new Error(m.message));
-      };
-      worker.onerror = (e) => reject(new Error(e.message || "The kit maker stopped unexpectedly (out of memory?)."));
-      worker.postMessage({
-        type: "run", mode: split ? "split" : "kit", channels, sr, name: song.name, sha256, pads, separator,
-        modelBase: new URL(MODEL_BASE, document.baseURI).href, includeStems: split && $("#split-stems").checked,
-      }, channels.map((c) => c.buffer));
-    });
-    worker.terminate();
+    rec.minutes = Math.round((channels[0].length / sr / 60) * 10) / 10;
+    let stems;
+    if (separator === "ai") {
+      // The AI model gets a worker of its own, closed before the kit is made, so the two never
+      // need their memory at the same time.
+      onMessage({ type: "progress", stage: "ingest", status: "done" });
+      onMessage({ type: "progress", stage: "separate", status: "start" });
+      crumb.set({ step: "starting", what, minutes: rec.minutes });
+      const t0 = now();
+      const out = await runWorker({
+        type: "separate", channels, sr, modelBase: new URL(MODEL_BASE, document.baseURI).href,
+        keep: split && !includeStems ? ["vocals"] : null,
+      }, [...new Set(channels.map((c) => c.buffer))], onMessage);
+      if (make.tracking !== "local") return;
+      ({ channels, stems } = out);
+      onMessage({ type: "progress", stage: "separate", status: "done", value: now() - t0 });
+      crumb.set({ step: split ? "writing the files" : "making the kit", what, minutes: rec.minutes, device: rec.device });
+    }
+    const transfer = [...new Set([...channels, ...Object.values(stems || {}).flat()].map((c) => c.buffer))];
+    const result = await runWorker({
+      type: "run", mode: split ? "split" : "kit", channels, sr, name: song.name, sha256, pads, separator,
+      modelBase: new URL(MODEL_BASE, document.baseURI).href, includeStems, stems,
+    }, transfer, (m) => onMessage(m, stems ? ["ingest", "separate"] : []));
+    channels = stems = null;
+    crumb.clear();
     rec.status = "done";
     renderProgress(rec);
     make.song = null;
@@ -362,6 +411,7 @@ async function startLocal(song) {
     });
     toast("Made on this device. Use Export for Koala to keep it.");
   } catch (e) {
+    crumb.clear();
     if (e.message !== "cancelled") fail(e.message || String(e));
   } finally {
     make.cancel = null;
@@ -371,6 +421,22 @@ async function startLocal(song) {
     if (make.tracking === "local") make.tracking = null;
     try { await lock?.release(); } catch { /* already released */ }
   }
+
+  function fail(msg) {
+    rec.status = "failed"; rec.error = msg;
+    renderProgress(rec);
+  }
+}
+
+/** Say so if the last AI run on this device ended with the page being closed under it. */
+function reportCrash() {
+  const c = crumb.take();
+  if (!c || Date.now() - c.at > 24 * 3600 * 1000) return;
+  const song = c.minutes ? ` (a ${c.minutes}-minute song)` : "";
+  $("#crash-note").hidden = false;
+  $("#crash-note").innerHTML = `<b>The last ${esc(c.what || "AI split")}${esc(song)} stopped while ${esc(c.step)}.</b>
+    The browser closed the page, most likely because it ran out of memory. Close other tabs and try again, try a
+    shorter song, or use Quick on this device.`;
 }
 
 function resetSongPicker() {
@@ -610,6 +676,9 @@ async function checkModel() {
   } catch {
     ai.meta = null;
   }
+  // Exports from before the memory fixes crash phones; they need exporting again.
+  ai.outdated = Boolean(ai.meta && !ai.meta.outputs?.includes("sources"));
+  if (ai.outdated) ai.meta = null;
   if (ai.meta && !store.get("engine")) setEngine("ai");
   updateMode();
 }
@@ -665,6 +734,7 @@ async function checkModel() {
   if (store.get("engine")) setEngine(store.get("engine"));
   document.querySelectorAll('input[name="engine"]').forEach((r) => r.addEventListener("change", () => store.set("engine", engine())));
   checkModel();
+  reportCrash();
   document.querySelectorAll('input[name="where"]').forEach((r) => r.addEventListener("change", () => {
     store.set("route", route());
     updateMode();

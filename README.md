@@ -42,7 +42,14 @@ there yet: use **Export for Koala** for a kit, or download the acapella and inst
 
 The AI option appears once the model has been published: run **Actions → Export AI model → Run workflow** once. It
 exports HT-Demucs to ONNX (`scripts/export_demucs_onnx.py`), checks it against PyTorch, and attaches it to the
-`models-v1` release; the Pages workflow then bundles it with the site.
+`models-v1` release; the Pages workflow then bundles it with the site. Run it again after changes to the export script
+(the app says when the published model is out of date).
+
+Phones are tight on memory, so the export is shaped for them: attention runs one head at a time, the graph returns
+audio instead of per-source spectrograms, and the shape arithmetic is folded in advance so the browser doesn't run
+ONNX Runtime's optimizer. The model also runs in a worker of its own that is closed before the kit is made. If the
+browser still closes the page mid-way (iOS does when a page uses too much memory), the app says where it stopped the
+next time it opens.
 
 The in-browser engine (`site/engine/`) is a JavaScript port of the Python pipeline. Its tests check it against
 librosa and the Python pipeline on the same song: filterbanks, MFCC, onsets, tempo, beats, key and the finished kit.

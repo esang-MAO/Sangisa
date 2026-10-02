@@ -269,3 +269,4 @@ a.btn { text-decoration: none; }
 #sp-time { font-variant-numeric: tabular-nums; min-width: 84px; text-align: right; }
 #split-files { display: flex; flex-wrap: wrap; gap: 8px; }
 .kit-from { display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 14px; }
+.crash-note { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--panel-2); font-size: 13px; line-height: 1.45; }

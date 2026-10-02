@@ -61,7 +61,9 @@ export async function modelInfo(base, name = "htdemucs") {
  * onProgress(fraction, {cached, mb}).
  */
 export async function loadModelFiles(base, meta, onProgress = () => {}) {
-  const urls = [new URL(meta.graph, base).href, new URL(meta.weights, base).href];
+  // The version (a hash of the files) keeps a re-exported model from mixing with a cached one.
+  const v = meta.version ? `?v=${meta.version}` : "";
+  const urls = [new URL(meta.graph, base).href + v, new URL(meta.weights, base).href + v];
   const found = await Promise.all(urls.map(cached));
   if (found.every(Boolean)) {
     onProgress(1, { cached: true });

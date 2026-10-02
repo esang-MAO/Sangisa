@@ -16,7 +16,11 @@
   "nfft": 4096,
   "hop": 1024,
   "frames": 44,
-  "weights_mb": 0.7,
+  "outputs": [
+    "sources"
+  ],
+  "weights_mb": 0.9,
+  "version": "8195768f7fe58116",
   "reference": {
     "samples": 105840,
     "channels": 2,
