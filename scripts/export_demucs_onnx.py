@@ -1,13 +1,16 @@
 """Export HT-Demucs to ONNX for the in-browser engine (site/engine/demucs.js).
 
-Only the network goes into the ONNX graph. The spectrogram in front of it and the inverse
-spectrogram behind it (complex numbers, which ONNX Runtime Web handles poorly) stay in
-JavaScript, as does chunking the song. So the graph is:
+The graph holds the network and the inverse spectrogram behind it, so it returns audio. The
+spectrogram in front of it (a small input) and chunking the song stay in JavaScript:
 
-    inputs   mix   float32 [1, 2, L]           one chunk of audio (L = the model's training length)
-             spec  float32 [1, 4, 2048, T]     its spectrogram, complex as channels (demucs' "CaC")
-    outputs  spec_out float32 [1, S, 4, 2048, T]   per-source spectrograms (to invert in JS)
-             time_out float32 [1, S, 2, L]         per-source time-branch output (added after inverting)
+    inputs   mix      float32 [1, 2, L]           one chunk of audio (L = the model's training length)
+             spec     float32 [1, 4, 2048, T]     its spectrogram, complex as channels (demucs' "CaC")
+    output   sources  float32 [1, S, 2, L]        the chunk split into S sources
+
+Several changes keep it inside a phone browser's memory, all with the same result as PyTorch:
+attention runs one head at a time, the shape arithmetic is folded at export (so the browser
+needn't run its optimizer), and returning audio rather than per-source spectrograms saves a
+176 MB output per chunk.
 
 Usage:
     python scripts/export_demucs_onnx.py --model htdemucs --out site/models          # pretrained
@@ -21,6 +24,8 @@ With --reference also a short test signal and the PyTorch apply_model output, fo
 from __future__ import annotations
 
 import argparse
+import copy
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -64,7 +69,9 @@ class Core(nn.Module):
             x = encode(x, inject)
             if idx == 0 and m.freq_emb is not None:
                 frs = torch.arange(x.shape[-2], device=x.device)
-                emb = m.freq_emb(frs).t()[None, :, :, None].expand_as(x)
+                # demucs expands this to x's shape first; broadcasting gives the same sum without
+                # a 33 MB constant
+                emb = m.freq_emb(frs).t()[None, :, :, None]
                 x = x + m.freq_emb_scale * emb
             saved.append(x)
         if m.crosstransformer:
@@ -100,7 +107,82 @@ class Core(nn.Module):
         L = mix.shape[-1]
         xt = xt.view(B, S, -1, L)
         xt = xt * stdt[:, None] + meant[:, None]
-        return x, xt
+        return ispec(x, m.nfft, m.hop_length, L, zero=mix[0, 0, 0] * 0) + xt
+
+
+def ispec(x, nfft: int, hop: int, length: int, zero=0.0):
+    """HTDemucs._mask + _ispec (torch.istft) as plain tensor ops, so ONNX Runtime returns audio.
+
+    x: [B, S, C*2, F, T] spectrograms, real and imaginary parts interleaved per channel; the
+    Nyquist bin and demucs' two empty frames on each side are zero. Returns [B, S, C, length].
+    The inverse DFT is two matrix products with a cosine and a sine table built from ranges
+    inside the graph; frames overlap-add in four shifted slices. `zero` is 0 computed from
+    the input: adding it keeps the tables from being folded into weights at export (which would
+    add 33 MB to the download and round them to float16). ONNX Runtime builds them per chunk.
+    """
+    B, S, C2, Fq, T = x.shape
+    N, half = nfft, nfft // 2
+    assert Fq == half and N == 4 * hop
+    re, im = x[:, :, 0::2].transpose(-1, -2), x[:, :, 1::2].transpose(-1, -2)  # [B, S, C, T, F]
+    # k * n < 2**24, so this integer arithmetic is exact in float32 (ONNX Runtime Web has no
+    # int64 -> float Cast); reducing mod N first keeps the angles precise.
+    k = torch.arange(Fq, dtype=torch.float32) + zero
+    n = torch.arange(half + 1, dtype=torch.float32) + zero
+    phase = torch.remainder(k[:, None] * n[None, :], N)
+    angle = phase * (2 * math.pi / N)
+    # irfft with the DC bin counted once and the others twice, and istft's normalized=True scale
+    weight = torch.where(k == 0, 1.0, 2.0)[:, None] * (math.sqrt(N) / N)
+    a = re @ (torch.cos(angle) * weight)  # [B, S, C, T, half + 1]
+    b = im @ (torch.sin(angle) * weight)
+    # samples n and N - n share the same cosine and opposite sines
+    frames = torch.cat([a - b, torch.flip((a + b)[..., 1:half], dims=[-1])], dim=-1)  # [.., T, N]
+    i = torch.arange(N, dtype=torch.float32) + zero
+    window = 0.5 - 0.5 * torch.cos(i * (2 * math.pi / N))  # periodic hann
+    frames = (frames * window).reshape(B, S, C2 // 2, T, 4, hop)
+    # overlap-add: block r of the output gets frame r - j's j-th quarter
+    ola = sum(nn.functional.pad(frames[..., j, :], (0, 0, j, 3 - j)) for j in range(4))  # [.., T + 3, hop]
+    # istft's window-square envelope over T + 4 frames (demucs pads two empty frames each side)
+    sq = (window * window).reshape(4, hop)
+    env = sum(nn.functional.pad(sq[j][None, :].expand(T + 4, hop), (0, 0, j, 3 - j)) for j in range(4))
+    # ola block r is the padded signal's block r + 2; keep demucs' window after center=True trimming
+    start = half + hop // 2 * 3 - 2 * hop
+    y = ola.reshape(B, S, C2 // 2, -1)[..., start:start + length]
+    e = env.reshape(-1)[start + 2 * hop:start + 2 * hop + length]
+    return y / torch.where(e > 1e-11, e, torch.ones_like(e))
+
+
+class LowMemoryAttention(nn.MultiheadAttention):
+    """nn.MultiheadAttention computed one head at a time, with the same weights and result.
+
+    The transformer in HT-Demucs attends over 2688 spectrogram positions, so all eight heads'
+    attention matrices at once take about 0.5 GB; one at a time, ONNX Runtime reuses one
+    head's buffers for the next. That keeps the model inside a phone browser's memory.
+    """
+
+    def forward(self, query, key, value, key_padding_mask=None, need_weights=True, attn_mask=None,
+                average_attn_weights=True, is_causal=False):
+        assert attn_mask is None and key_padding_mask is None and self.batch_first
+        E, H = self.embed_dim, self.num_heads
+        d = E // H
+        w, b = self.in_proj_weight, self.in_proj_bias
+        q = nn.functional.linear(query, w[:E], b[:E]) * d ** -0.5
+        k = nn.functional.linear(key, w[E:2 * E], b[E:2 * E])
+        v = nn.functional.linear(value, w[2 * E:], b[2 * E:])
+        heads = []
+        for h in range(H):
+            sl = slice(h * d, (h + 1) * d)
+            att = torch.softmax(q[..., sl] @ k[..., sl].transpose(-1, -2), dim=-1)
+            heads.append(att @ v[..., sl])
+        return self.out_proj(torch.cat(heads, dim=-1)), None
+
+
+def low_memory(model):
+    """Swap in the memory-saving attention (same weights, same results)."""
+    for mod in model.modules():
+        if type(mod) is nn.MultiheadAttention:
+            assert mod._qkv_same_embed_dim and mod.in_proj_bias is not None and mod.bias_k is None
+            mod.__class__ = LowMemoryAttention
+    return model
 
 
 def load_model(name: str | None, tiny: bool):
@@ -135,17 +217,26 @@ def export(model, out: Path, name: str, fp16: bool) -> dict:
     L = int(model.segment * model.samplerate)
     mix = torch.randn(1, model.audio_channels, L) * 0.1
     mag = spec_of(model, mix)
-    core = Core(model).eval()
+    core = Core(low_memory(copy.deepcopy(model))).eval()
     # The fused attention kernel PyTorch uses in eval mode has no ONNX equivalent.
     torch.backends.mha.set_fastpath_enabled(False)
     out.mkdir(parents=True, exist_ok=True)
     path = out / f"{name}.onnx"
     with torch.no_grad():
         torch.onnx.export(
-            core, (mix, mag), str(path), input_names=["mix", "spec"], output_names=["spec_out", "time_out"],
+            core, (mix, mag), str(path), input_names=["mix", "spec"], output_names=["sources"],
             opset_version=17, dynamo=False, do_constant_folding=True,
         )
     import onnx
+    import onnxruntime as ort
+
+    # Fold the shape arithmetic (int64 and float64 casts that ONNX Runtime Web lacks) into
+    # constants now, so the browser can load the graph without its optimizer, which costs
+    # hundreds of MB at peak on a phone.
+    so = ort.SessionOptions()
+    so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
+    so.optimized_model_filepath = str(path)
+    ort.InferenceSession(str(path), so, providers=["CPUExecutionProvider"])
 
     m = onnx.load(str(path))
     # Weights go in a separate file the browser downloads once and caches. With --fp16 that file
@@ -159,6 +250,9 @@ def export(model, out: Path, name: str, fp16: bool) -> dict:
         if any(e.key == "location" for e in t.external_data) and t.data_type != onnx.TensorProto.FLOAT:
             raise SystemExit(f"external tensor {t.name} isn't float32; the browser loader assumes it is")
     raw = np.fromfile(out / data_name, dtype="<f4")
+    params = sum(p.numel() for p in model.parameters()) + sum(b.numel() for b in model.buffers())
+    if raw.size > params + 2_000_000:  # folded positional embeddings are fine; the DFT tables aren't
+        raise SystemExit(f"the weights file has {raw.size} values but the model {params}: a computed table was stored")
     if fp16:
         raw.astype("<f2").tofile(out / f"{name}.weights.f16")
         raw.astype("<f2").astype("<f4").tofile(out / data_name)  # what the browser will see, for check()
@@ -177,8 +271,13 @@ def export(model, out: Path, name: str, fp16: bool) -> dict:
         "nfft": model.nfft,
         "hop": model.hop_length,
         "frames": int(mag.shape[-1]),
+        "outputs": ["sources"],  # [1, S, C, L] audio (older exports returned spectrograms)
         "weights_mb": round((out / f"{name}.weights.{'f16' if fp16 else 'f32'}").stat().st_size / 1048576, 1),
     }
+    digest = hashlib.sha256()
+    for f in (meta["graph"], meta["weights"]):
+        digest.update((out / f).read_bytes())
+    meta["version"] = digest.hexdigest()[:16]
     (out / f"{name}.json").write_text(json.dumps(meta, indent=2) + "\n")
     return meta
 
@@ -192,12 +291,10 @@ def check(model, out: Path, name: str) -> float:
     mix = torch.randn(1, model.audio_channels, L) * 0.1
     sess = ort.InferenceSession(str(out / f"{name}.onnx"), providers=["CPUExecutionProvider"])
     mag = spec_of(model, mix)
-    so, to = sess.run(None, {"mix": mix.numpy(), "spec": mag.numpy()})
+    (x,) = sess.run(None, {"mix": mix.numpy(), "spec": mag.numpy()})
     with torch.no_grad():
         ref = model(mix)
-        zout = model._mask(None, torch.from_numpy(so))
-        x = model._ispec(zout, L) + torch.from_numpy(to)
-    err = float((x - ref).abs().max() / ref.abs().max())
+    err = float((torch.from_numpy(x) - ref).abs().max() / ref.abs().max())
     return err
 
 

@@ -95,7 +95,9 @@ export const SPLIT_STAGES = ["ingest", "separate", "analyze", "split"];
  * Acapella + instrumental on the device: the acapella is the separator's vocals, the instrumental
  * is the song minus the acapella (so the two add back up to it). 24-bit WAV at the song's rate.
  */
-export async function makeSplit({ channels, sr, name, cfg, separate, includeStems = false, onProgress = () => {} }) {
+export async function makeSplit({
+  channels, sr, name, cfg, separate, stems: givenStems = null, includeStems = false, onProgress = () => {},
+}) {
   const run = async (stage, fn) => {
     onProgress(stage, "start");
     const t0 = performance.now();
@@ -106,7 +108,7 @@ export async function makeSplit({ channels, sr, name, cfg, separate, includeStem
   };
   const stereo = channels.length === 1 ? [channels[0], channels[0]] : channels.slice(0, 2);
   await run("ingest", async () => {});
-  const stems = await run("separate", (p) => separate(stereo, sr, p));
+  const stems = await run("separate", (p) => givenStems ?? separate(stereo, sr, p));
   if (!stems.vocals) throw new Error("This separator has no vocal stem.");
   const analysis = await run("analyze", async () => {
     const mono = toMono(stereo);

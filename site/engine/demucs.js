@@ -1,12 +1,11 @@
 // HT-Demucs in the browser, with ONNX Runtime Web running the network
 // (exported by scripts/export_demucs_onnx.py).
 //
-// The network sits between two spectrogram steps that stay here in JavaScript, written to
-// match demucs exactly (demucs/htdemucs.py _spec/_ispec, demucs/spec.py, demucs/apply.py):
+// The steps around the network stay here in JavaScript, written to match demucs exactly
+// (demucs/htdemucs.py _spec, demucs/spec.py, demucs/apply.py):
 //   chunk the song (training length, 25% overlap, triangular cross-fade)
 //   -> STFT (4096-point, hop 1024, reflect padding, normalised), complex as channels
-//   -> ONNX: per-source spectrograms + per-source time-branch output
-//   -> inverse STFT of the spectrograms, plus the time branch
+//   -> ONNX: the network and its inverse STFT, returning each source's audio
 // Tests compare this file's output with demucs' own apply_model (tests/engine/demucs.test.mjs).
 
 import { fft, hann } from "./dsp.js";
@@ -65,41 +64,6 @@ export function demucsSpec(chunk, nfft, hop) {
   return { data: out, frames: le };
 }
 
-/** HTDemucs._ispec for one source/channel: complex spectrogram [F, le] (re/im planes) -> L samples. */
-function demucsIspec(reP, imP, F, le, nfft, hop, L) {
-  const T = le + 4; // two zero frames padded on each side
-  const pad = (hop >> 1) * 3;
-  const total = nfft + hop * (T - 1);
-  const ola = new Float64Array(total), env = new Float64Array(total);
-  const win = hann(nfft);
-  const scale = Math.sqrt(nfft);
-  const re = new Float64Array(nfft), im = new Float64Array(nfft);
-  for (let t = 0; t < T; t++) {
-    const tt = t - 2;
-    const s = t * hop;
-    if (tt < 0 || tt >= le) {
-      for (let i = 0; i < nfft; i++) env[s + i] += win[i] * win[i];
-      continue;
-    }
-    re.fill(0); im.fill(0);
-    for (let f = 0; f < F; f++) { re[f] = reP[f * le + tt]; im[f] = imP[f * le + tt]; }
-    // bin F (Nyquist) is zero; mirror for a real signal
-    for (let f = 1; f < F; f++) { re[nfft - f] = re[f]; im[nfft - f] = -im[f]; }
-    fft(re, im, true);
-    for (let i = 0; i < nfft; i++) {
-      ola[s + i] += re[i] * scale * win[i];
-      env[s + i] += win[i] * win[i];
-    }
-  }
-  const start = (nfft >> 1) + pad; // center=True trim, then demucs' own pad
-  const out = new Float32Array(L);
-  for (let i = 0; i < L; i++) {
-    const j = start + i;
-    out[i] = env[j] > 1e-11 ? ola[j] / env[j] : 0;
-  }
-  return out;
-}
-
 // ---------------------------------------------------------------- the model
 
 /** IEEE half -> float. */
@@ -131,10 +95,15 @@ export class Demucs {
    * @param {string[]} [executionProviders]  e.g. ["webgpu"] or ["wasm"]
    */
   static async create(ort, graph, meta, weights, executionProviders = ["wasm"]) {
+    if (!meta.outputs?.includes("sources")) {
+      throw new Error("The AI model on this site is an older export. Run the Export AI model workflow again.");
+    }
     const session = await ort.InferenceSession.create(graph instanceof Uint8Array ? graph : new Uint8Array(graph), {
       executionProviders,
       externalData: [{ path: meta.external_data_path, data: expandWeights(meta, weights) }],
-      graphOptimizationLevel: "all",
+      // The optimizer's constant folding briefly holds extra copies, adding about 300 MB at peak
+      // (WebAssembly memory never shrinks), for no measurable speed-up.
+      graphOptimizationLevel: "disabled",
     });
     return new Demucs(ort, session, meta);
   }
@@ -145,7 +114,7 @@ export class Demucs {
     this.meta = meta;
   }
 
-  /** One training-length chunk (2 x L) -> sources [S][C] Float32Array(L). */
+  /** One training-length chunk (2 x L) -> sources [S][C] Float32Array(L), views of one buffer. */
   async runChunk(chunk) {
     const { nfft, hop, sources, audio_channels: C } = this.meta;
     const L = chunk[0].length;
@@ -158,30 +127,16 @@ export class Demucs {
       mix: new Tensor("float32", mix, [1, C, L]),
       spec: new Tensor("float32", spec, [1, C * 2, F, le]),
     });
-    const so = out.spec_out.data, to = out.time_out.data;
-    const S = sources.length;
-    const result = [];
-    for (let s = 0; s < S; s++) {
-      const chans = [];
-      for (let c = 0; c < C; c++) {
-        const base = ((s * C * 2) + c * 2) * F * le;
-        const x = demucsIspec(so.subarray(base, base + F * le), so.subarray(base + F * le, base + 2 * F * le),
-          F, le, nfft, hop, L);
-        const tb = (s * C + c) * L;
-        for (let i = 0; i < L; i++) x[i] += to[tb + i];
-        chans.push(x);
-      }
-      result.push(chans);
-    }
-    out.spec_out.dispose?.(); out.time_out.dispose?.();
-    return result;
+    const data = out.sources.data;
+    return sources.map((_, s) => Array.from({ length: C }, (_, c) => data.subarray((s * C + c) * L, (s * C + c + 1) * L)));
   }
 
   /**
    * demucs.apply.apply_model(model, mix, shifts=0, split=True, overlap=0.25) with demucs' input
-   * normalisation. channels: [L, R] Float32Array at meta.samplerate. Returns {source: [L, R]}.
+   * normalisation. channels: [L, R] Float32Array at meta.samplerate. Returns {source: [L, R]} for
+   * the sources in `keep` (all by default; fewer saves memory on long songs).
    */
-  async separate(channels, onProgress = () => {}) {
+  async separate(channels, onProgress = () => {}, keep = this.meta.sources) {
     const { sources, segment_samples: L } = this.meta;
     const C = channels.length;
     const n = channels[0].length;
@@ -197,7 +152,7 @@ export class Demucs {
     const half = Math.floor(L / 2);
     const peak = Math.max(half, L - half);
     const weight = Float32Array.from({ length: L }, (_, i) => (i < half ? i + 1 : L - i) / peak);
-    const acc = sources.map(() => channels.map(() => new Float32Array(n)));
+    const acc = sources.map((name) => (keep.includes(name) ? channels.map(() => new Float32Array(n)) : null));
     const sumW = new Float32Array(n);
     const offsets = [];
     for (let o = 0; o < n; o += stride) offsets.push(o);
@@ -218,16 +173,18 @@ export class Demucs {
       const out = await this.runChunk(chunk);
       const trim = Math.floor(delta / 2);
       for (let s = 0; s < sources.length; s++) {
+        if (!acc[s]) continue;
         for (let c = 0; c < C; c++) {
           const src = out[s][c], dst = acc[s][c];
           for (let i = 0; i < len; i++) dst[offset + i] += weight[i] * src[trim + i];
         }
       }
       for (let i = 0; i < len; i++) sumW[offset + i] += weight[i];
-      onProgress((k + 1) / offsets.length);
+      onProgress((k + 1) / offsets.length, k + 1, offsets.length);
     }
     const result = {};
     sources.forEach((name, s) => {
+      if (!acc[s]) return;
       result[name] = acc[s].map((x) => {
         for (let i = 0; i < n; i++) x[i] = (x[i] / sumW[i]) * std + mean;
         return x;
