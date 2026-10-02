@@ -84,7 +84,8 @@ def test_only_kit_files_are_served(client, song):
     rec = wait_for(client, upload(client, song).json()["id"])
     base = f"/api/jobs/{rec['id']}/files"
     assert client.get(f"{base}/analysis.json").status_code == 200
-    for path in ("manifest.json", "work.wav", "stems/drums.wav", "../status.json", "input/My Song.wav"):
+    assert client.get(f"{base}/work.wav").status_code == 200  # the original, for A/B listening
+    for path in ("manifest.json", "stems/drums.wav", "pair/vocals.wav", "../status.json", "input/My Song.wav"):
         assert client.get(f"{base}/{path}").status_code == 404, path
     assert client.get("/api/jobs/not-a-job").status_code == 404
 
@@ -112,3 +113,39 @@ def test_other_devices_need_the_key(app):
     assert phone.get("/api/health", headers={"x-sangisa-key": "wrong"}).status_code == 401
     assert phone.get("/api/health", headers={"x-sangisa-key": "secret-key"}).status_code == 200
     assert phone.get("/api/health?key=secret-key").status_code == 200
+
+
+def test_acapella_instrumental_then_kit(client, song):
+    import io
+    import zipfile
+
+    res = upload(client, song, mode="split", format="flac")
+    assert res.status_code == 201, res.text
+    rec = res.json()
+    assert rec["mode"] == "split" and rec["order"] == ["ingest", "separate", "analyze", "split"]
+    assert rec["labels"]["separate"] == "Separating the vocals"
+    rec = wait_for(client, rec["id"])
+    assert rec["status"] == "done", rec["error"]
+    assert rec["split"]["files"]["acapella"].endswith("My Song - Acapella - 120bpm Fmin.flac")
+
+    info = client.get(f"/api/jobs/{rec['id']}/split.json").json()
+    aca = client.get(f"/api/jobs/{rec['id']}/files/{info['files']['acapella']}")
+    assert aca.status_code == 200 and aca.content[:4] == b"fLaC"
+    z = zipfile.ZipFile(io.BytesIO(client.get(f"/api/jobs/{rec['id']}/split.zip").content))
+    assert sorted(z.namelist()) == ["My Song/My Song - Acapella - 120bpm Fmin.flac",
+                                    "My Song/My Song - Instrumental - 120bpm Fmin.flac"]
+    assert client.get(f"/api/jobs/{rec['id']}/kit.json").status_code == 404
+
+    # Make a kit from it: same job, the acapella is reused.
+    res = client.post(f"/api/jobs/{rec['id']}/kit", data={"pads": "drums=4,vocals=4,bass=4,other=4"})
+    assert res.status_code == 202, res.text
+    rec = wait_for(client, rec["id"])
+    assert rec["status"] == "done", rec["error"]
+    assert rec["mode"] == "kit" and rec["kit"]["name"] == "My Song Kit" and rec["split"]
+    kit = Kit.model_validate(client.get(f"/api/jobs/{rec['id']}/kit.json").json())
+    assert kit.separation.vocal_model and len(kit.pads) == 16
+
+
+def test_bad_split_options(client, song):
+    assert upload(client, song, mode="remix").status_code == 400
+    assert upload(client, song, mode="split", format="ogg").status_code == 400

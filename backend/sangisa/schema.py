@@ -49,6 +49,7 @@ class Analysis(BaseModel):
 class Separation(BaseModel):
     backend: str
     model: str
+    vocal_model: str | None = Field(default=None, description="Set when the vocals came from a dedicated vocal model")
     device: str | None = None
     stems: dict[str, str] = Field(description="stem name -> path relative to the job folder")
 

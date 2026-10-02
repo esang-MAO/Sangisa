@@ -11,6 +11,8 @@ Layout::
       candidates.json    every scored candidate (feeds re-roll and swaps)
       kit.json           the kit contract (see schema.py)
       slices/*.wav       rendered slices
+      pair/              acapella + instrumental (32-bit float, add back up to work.wav)
+      split/             the Acapella + instrumental files as delivered, plus split.json
 """
 
 from __future__ import annotations
@@ -20,7 +22,12 @@ import time
 from pathlib import Path
 from typing import Any
 
-STAGES = ("ingest", "separate", "analyze", "pick", "render")
+STAGES = ("ingest", "separate", "analyze", "pick", "render", "split")
+# Which stages each mode runs: a sample-pack kit, or Acapella + instrumental.
+MODE_STAGES = {
+    "kit": ("ingest", "separate", "analyze", "pick", "render"),
+    "split": ("ingest", "separate", "analyze", "split"),
+}
 
 
 class Job:
@@ -93,6 +100,12 @@ class Job:
         data = self.manifest()
         entry = data.setdefault("stages", {}).setdefault(stage, {})
         entry.update(status=status, updated_at=time.strftime("%Y-%m-%dT%H:%M:%S%z"), **extra)
+        self.write_manifest(data)
+
+    def invalidate_stages(self, stages: list[str]) -> None:
+        data = self.manifest()
+        for name in stages:
+            data.setdefault("stages", {}).pop(name, None)
         self.write_manifest(data)
 
     def invalidate_from(self, stage: str) -> None:

@@ -8,7 +8,7 @@ import sys
 from sangisa import __version__
 from sangisa.config import load_config
 from sangisa.job import STAGES, Job
-from sangisa.pipeline import LABELS, run_pipeline
+from sangisa.pipeline import labels_for, run_pipeline
 from sangisa.schema import Kit
 
 
@@ -33,7 +33,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--config", "-c", help="TOML file overriding the defaults")
     p.add_argument("--i-have-rights", action="store_true",
                    help="confirm you own this audio or have the rights to sample it")
+    p.add_argument("--mode", choices=("kit", "split"), default="kit",
+                   help="kit: a sample pack (default); split: a full-length acapella + instrumental")
     p.add_argument("--model", help="separation model, e.g. htdemucs_ft.yaml or htdemucs_6s.yaml")
+    p.add_argument("--hq-vocals", action="store_true",
+                   help="kit: take the vocals from the dedicated vocal model (BS-RoFormer); slower, cleaner")
+    p.add_argument("--vocal-model", help="vocal model for --hq-vocals and --mode split")
+    p.add_argument("--format", choices=("wav", "flac", "mp3"), help="split: file format (default wav, 24-bit)")
+    p.add_argument("--fast", action="store_true", help="split: vocals from the 4-stem model (faster, less clean)")
+    p.add_argument("--normalize", action="store_true", help="split: peak-normalize both files (they no longer sum)")
+    p.add_argument("--include-stems", action="store_true", help="split: also write drums, bass and other")
     p.add_argument("--pads", type=parse_split, metavar="STEM=N,...",
                    help="pad split, e.g. drums=6,vocals=4,bass=3,other=3")
     g = p.add_mutually_exclusive_group()
@@ -77,9 +86,18 @@ def main(argv: list[str] | None = None) -> int:
     if argv and argv[0] == "serve":
         return serve_main(argv[1:])
     args = build_parser().parse_args(argv)
-    overrides: dict = {}
+    overrides: dict = {"separation": {}, "split": {}}
     if args.model:
-        overrides["separation"] = {"model": args.model}
+        overrides["separation"]["model"] = args.model
+    if args.vocal_model:
+        overrides["separation"]["vocal_model"] = args.vocal_model
+    if args.hq_vocals:
+        overrides["separation"]["hq_vocals"] = True
+    if args.format:
+        overrides["split"]["format"] = args.format
+    for flag in ("fast", "normalize", "include_stems"):
+        if getattr(args, flag):
+            overrides["split"][flag] = True
     if args.pads:
         overrides["kit"] = {"pad_split": args.pads, "pad_count": sum(args.pads.values())}
     try:
@@ -90,10 +108,12 @@ def main(argv: list[str] | None = None) -> int:
 
     job = Job(args.out)
 
+    labels = labels_for(args.mode)
+
     def progress(stage: str, status: str, seconds: float | None) -> None:
         if status == "start":
             note = " (the slow step: about 1-2 min on a GPU, 10-15 min on CPU)" if stage == "separate" else ""
-            print(f"→ {LABELS[stage]}…{note}", flush=True)
+            print(f"→ {labels[stage]}…{note}", flush=True)
         else:
             print(f"  done in {seconds:.1f}s", flush=True)
 
@@ -102,6 +122,7 @@ def main(argv: list[str] | None = None) -> int:
             job, cfg,
             source=args.input,
             rights_confirmed=args.i_have_rights,
+            mode=args.mode,
             only=args.stage,
             start_at=args.from_stage,
             force=args.force,
@@ -111,9 +132,21 @@ def main(argv: list[str] | None = None) -> int:
         print(f"sangisa: {exc}", file=sys.stderr)
         return 1
 
-    if job.kit_path.exists() and job.is_done("render"):
+    if args.mode == "split":
+        if job.is_done("split"):
+            print_split_summary(job)
+    elif job.kit_path.exists() and job.is_done("render"):
         print_summary(Kit.load(job.kit_path), job)
     return 0
+
+
+def print_split_summary(job: Job) -> None:
+    import json
+
+    info = json.loads((job.root / "split.json").read_text())
+    print(f"\n{info['song']}: {info['bpm'] or '?'} BPM, {info['key'] or 'key unknown'}")
+    for path in [*info["files"].values(), *info["stems"].values()]:
+        print(f"  {job.abs(path)}")
 
 
 def print_summary(kit: Kit, job: Job) -> None:

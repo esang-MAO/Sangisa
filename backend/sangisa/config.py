@@ -54,3 +54,7 @@ def validate(cfg: Config) -> None:
         raise ValueError("kit.pad_count must be 16, 32 or 64")
     if any(n < 0 for n in split.values()):
         raise ValueError("kit.pad_split values must be zero or more")
+    if cfg["split"]["format"] not in ("wav", "flac", "mp3"):
+        raise ValueError("split.format must be wav, flac or mp3")
+    if cfg["split"]["bit_depth"] not in (16, 24, 32):
+        raise ValueError("split.bit_depth must be 16, 24 or 32")

@@ -115,11 +115,38 @@ def song(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
 
 @pytest.fixture(scope="session")
 def fixture_separator(song: dict[str, Path]) -> str:
+    """Stand-in for the real models, built from the song's known stems.
+
+    A model with "roformer" in its name acts as the vocal model: vocals + instrumental.
+    Anything else acts as the 4-stem model: the true drums, bass and other, and as vocals whatever
+    of the input is left (so on an instrumental it returns near-silence, like the real thing).
+    Every call is recorded in SEPARATOR_CALLS as (model, input file name).
+    """
+
     @register_separator("fixture")
     def _separate(path: Path, model: str, out_dir: Path, **_: object) -> dict[str, Path]:
-        return {name: p for name, p in song.items() if name != "mix"}
+        SEPARATOR_CALLS.append((model, Path(path).name))
+        x, sr = sf.read(path, dtype="float32", always_2d=True)
+
+        def fit(a):
+            return a[: len(x)] if len(a) >= len(x) else np.pad(a, ((0, len(x) - len(a)), (0, 0)))
+
+        if "roformer" in model:
+            v = fit(sf.read(song["vocals"], dtype="float32", always_2d=True)[0])
+            sf.write(out_dir / "vocals.wav", v, sr, subtype="FLOAT")
+            sf.write(out_dir / "instrumental.wav", x - v, sr, subtype="FLOAT")
+            return {"vocals": out_dir / "vocals.wav", "instrumental": out_dir / "instrumental.wav"}
+        out = {name: song[name] for name in ("drums", "bass", "other")}
+        rest = x.copy()
+        for p in out.values():
+            rest -= fit(sf.read(p, dtype="float32", always_2d=True)[0])
+        sf.write(out_dir / "vocals.wav", rest, sr, subtype="FLOAT")
+        return {**out, "vocals": out_dir / "vocals.wav"}
 
     return "fixture"
+
+
+SEPARATOR_CALLS: list[tuple[str, str]] = []
 
 
 @pytest.fixture

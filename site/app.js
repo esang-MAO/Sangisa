@@ -86,9 +86,11 @@ function openKit(kit, read) {
   preloadBank();
 }
 
-// One of: "welcome" (make or open a kit), "progress" (a kit being made), "kit" (the pad grid).
+// One of: "welcome" (make or open a kit), "progress" (being made), "kit" (the pad grid),
+// "split" (an acapella + instrumental).
 function showView(name) {
-  for (const id of ["welcome", "progress", "kit"]) $(`#${id}`).hidden = id !== name;
+  for (const id of ["welcome", "progress", "kit", "split"]) $(`#${id}`).hidden = id !== name;
+  if (name !== "split") document.querySelectorAll("#split-audio audio").forEach((a) => a.pause());
   if (name !== "kit") stopAll();
   window.scrollTo({ top: 0 });
 }
@@ -187,7 +189,7 @@ function renderHeader() {
     a.key || "key unknown",
     kit.source?.duration_s ? fmt(kit.source.duration_s) : null,
     `${kit.pads.length} pads`,
-    kit.separation?.model ? `stems: ${kit.separation.model}` : null,
+    kit.separation?.model ? `stems: ${kit.separation.model}${kit.separation.vocal_model ? " + HQ vocals" : ""}` : null,
   ].filter(Boolean);
   $("#kit-meta").textContent = bits.join(" · ");
 }
