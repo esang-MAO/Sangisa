@@ -76,6 +76,7 @@ async function connect() {
     }
     if (info) {
       Object.assign(server, { base, info });
+      if (!store.get("route")) setWhere("computer");
       setConn("on");
       refreshRecent();
       return true;
@@ -99,11 +100,13 @@ function setConn(stateName) {
     key: "This device needs the link with the access key",
   }[stateName];
   const ready = stateName === "on";
-  if (stateName !== "checking") $("#setup").open = !ready;
+  if (stateName !== "checking") $("#setup").open = !ready && route() === "computer";
   $("#phone-note").hidden = !isPhone;
   updateStart();
   const hint = $("#make-hint");
-  if (stateName === "off") {
+  if (route() === "device") {
+    hint.textContent = "";
+  } else if (stateName === "off") {
     hint.innerHTML = isPhone
       ? "Start Sangisa on your computer with <code>sangisa serve --lan</code>, then scan the code it prints."
       : 'Start Sangisa on your computer (steps below). Already running? Open <a href="http://localhost:8765/">localhost:8765</a>.';
@@ -128,11 +131,23 @@ function chooseSong(file) {
   updateStart();
 }
 
+// "device" runs the in-browser engine; "computer" sends the song to `sangisa serve`.
+function route() {
+  return document.querySelector('input[name="where"]:checked')?.value || "device";
+}
+
+function setWhere(value) {
+  const input = document.querySelector(`input[name="where"][value="${value}"]`);
+  if (input) input.checked = true;
+}
+
 function updateStart() {
-  const ok = Boolean(make.song && $("#rights").checked && server.base);
+  const local = route() === "device";
+  const ok = Boolean(make.song && $("#rights").checked && (local || server.base));
   $("#start").disabled = !ok;
   $("#start").title = !make.song ? "Choose a song first" : !$("#rights").checked ? "Confirm you have the rights" :
-    !server.base ? "Start Sangisa on your computer first" : "";
+    !local && !server.base ? "Start Sangisa on your computer first" : "";
+  $("#start").textContent = local ? "Make the kit on this device" : "Make the kit";
 }
 
 // ---------------------------------------------------------------- making the kit
@@ -156,6 +171,7 @@ function upload(form, onProgress) {
 }
 
 async function startJob() {
+  if (route() === "device") return startLocal(make.song);
   const song = make.song;
   const form = new FormData();
   form.append("file", song, song.name);
@@ -175,6 +191,102 @@ async function startJob() {
     track(rec.id);
   } catch (e) {
     $("#prog-sub").textContent = e.message;
+  }
+}
+
+// ---------------------------------------------------------------- making it on this device
+
+const DEVICE_MAX_MINUTES = 7; // keeps memory use safe on phones
+
+async function decodeSong(file) {
+  const data = await file.arrayBuffer();
+  let sha256 = "";
+  try {
+    const digest = await crypto.subtle.digest("SHA-256", data);
+    sha256 = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  } catch { /* crypto.subtle needs https or localhost */ }
+  const Ctx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  if (!Ctx) throw new Error("This browser can't decode audio.");
+  // An OfflineAudioContext at 44.1 kHz decodes and resamples in one step.
+  const ctx = new Ctx(2, 44100, 44100);
+  let buffer;
+  try {
+    buffer = await ctx.decodeAudioData(data);
+  } catch {
+    throw new Error(`This browser can't read ${file.name}. Try a WAV or MP3.`);
+  }
+  if (buffer.duration > DEVICE_MAX_MINUTES * 60) {
+    throw new Error(`On this device songs can be up to ${DEVICE_MAX_MINUTES} minutes; this one is ${(buffer.duration / 60).toFixed(1)}.`);
+  }
+  const channels = [];
+  for (let c = 0; c < Math.min(2, buffer.numberOfChannels); c++) channels.push(new Float32Array(buffer.getChannelData(c)));
+  return { channels, sr: buffer.sampleRate, sha256 };
+}
+
+async function keepAwake() {
+  try { return await navigator.wakeLock?.request("screen"); } catch { return null; }
+}
+
+async function startLocal(song) {
+  const pads = Object.fromEntries($("#pad-split").value.split(",").map((p) => p.split("=")).map(([k, v]) => [k, Number(v)]));
+  store.set("pads", $("#pad-split").value);
+  const now = () => Date.now() / 1000;
+  const rec = {
+    name: song.name, status: "running", stage: "ingest", stage_label: "Loading", stage_started: now(),
+    started: now(), stages: {}, error: null, local: true,
+    order: ["ingest", "separate", "analyze", "pick", "render"],
+    labels: { ingest: "Loading", separate: "Separating stems", analyze: "Analyzing tempo and key", pick: "Finding the best moments", render: "Building your kit" },
+  };
+  showView("progress");
+  renderProgress(rec);
+  const ticker = setInterval(() => renderProgress(rec), 1000);
+  const lock = await keepAwake();
+  make.tracking = "local";
+  const fail = (msg) => {
+    rec.status = "failed"; rec.error = msg;
+    renderProgress(rec);
+  };
+  try {
+    const decodeStart = now();
+    const { channels, sr, sha256 } = await decodeSong(song);
+    if (make.tracking !== "local") return; // the user went back while it was decoding
+    const worker = new Worker(new URL("engine/worker.js", document.baseURI), { type: "module" });
+    make.worker = worker;
+    const result = await new Promise((resolve, reject) => {
+      make.cancel = () => reject(new Error("cancelled"));
+      worker.onmessage = (e) => {
+        const m = e.data;
+        if (m.type === "progress") {
+          if (m.status === "start") Object.assign(rec, { stage: m.stage, stage_label: rec.labels[m.stage], stage_started: now() });
+          if (m.status === "done") rec.stages[m.stage] = m.stage === "ingest" ? now() - decodeStart : m.value;
+          renderProgress(rec);
+        } else if (m.type === "done") resolve(m);
+        else if (m.type === "error") reject(new Error(m.message));
+      };
+      worker.onerror = (e) => reject(new Error(e.message || "The kit maker stopped unexpectedly (out of memory?)."));
+      worker.postMessage({ type: "run", channels, sr, name: song.name, sha256, pads, separator: "quick" }, channels.map((c) => c.buffer));
+    });
+    worker.terminate();
+    rec.status = "done";
+    renderProgress(rec);
+    make.song = null;
+    resetSongPicker();
+    if (make.tracking !== "local") return; // the user went back
+    openKit(result.kit, async (p) => {
+      const f = result.files[p];
+      if (!f) throw new Error(`Missing ${p}`);
+      return f;
+    });
+    toast("Made on this device. Use Download kit .zip to keep it.");
+  } catch (e) {
+    if (e.message !== "cancelled") fail(e.message || String(e));
+  } finally {
+    make.cancel = null;
+    clearInterval(ticker);
+    make.worker?.terminate();
+    make.worker = null;
+    if (make.tracking === "local") make.tracking = null;
+    try { await lock?.release(); } catch { /* already released */ }
   }
 }
 
@@ -234,6 +346,12 @@ function renderProgress(rec) {
     return `<li data-status="${status}"><span class="dot"></span><span>${esc(rec.labels[stage])}</span><span class="t">${time}</span></li>`;
   }).join("");
   const gpu = server.info && server.info.device !== "cpu";
+  if (rec.local) {
+    $("#prog-note").textContent = rec.status === "running"
+      ? "Working on this device. Keep this page open; on a phone, keep the screen on."
+      : "";
+    return;
+  }
   $("#prog-note").textContent = rec.status === "running" && rec.stage === "separate"
     ? `Separating stems is the slow step: about ${gpu ? "1–3" : "10–15"} minutes. You can leave this page; the kit will be under Your kits.`
     : "";
@@ -308,8 +426,18 @@ $("#recent").addEventListener("click", guard(async (e) => {
 
   $("#song-input").onchange = guard((e) => e.target.files[0] && chooseSong(e.target.files[0]));
   $("#rights").onchange = updateStart;
+  setWhere(store.get("route") || "device");
+  document.querySelectorAll('input[name="where"]').forEach((r) => r.addEventListener("change", () => {
+    store.set("route", route());
+    setConn($("#conn").dataset.state);
+  }));
   $("#start").onclick = guard(startJob);
-  $("#prog-back").onclick = () => { make.tracking = null; showView("welcome"); refreshRecent(); };
+  $("#prog-back").onclick = () => {
+    if (make.tracking === "local") make.cancel?.();
+    make.tracking = null;
+    showView("welcome");
+    refreshRecent();
+  };
   $("#server-form").onsubmit = guard(async (e) => {
     e.preventDefault();
     const url = $("#server-url").value.trim().replace(/\/+$/, "");

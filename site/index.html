@@ -41,6 +41,16 @@
           <span id="song-sub" class="meta">or tap to choose one · WAV, AIFF, FLAC, MP3, M4A · up to 10 minutes</span>
         </label>
 
+        <fieldset class="where" id="where">
+          <legend>Make it on</legend>
+          <label class="choice"><input type="radio" name="where" value="device">
+            <span><b>This device</b><span class="meta">Quick split into drums, bass and the rest: no install, no
+              upload. No vocal stem yet, and kicks can sound thin.</span></span></label>
+          <label class="choice"><input type="radio" name="where" value="computer">
+            <span><b>My computer</b><span class="meta">Full AI stem split, vocals included. Needs Sangisa running
+              on your computer.</span></span></label>
+        </fieldset>
+
         <div class="make-row">
           <label class="field">Pads
             <select id="pad-split">
@@ -56,7 +66,7 @@
         <p id="make-hint" class="meta"></p>
 
         <details id="setup" class="setup">
-          <summary>How to start Sangisa on your computer</summary>
+          <summary>How to start Sangisa on your computer (for the full stem split)</summary>
           <p>The song is processed by Sangisa running on your own computer, so it never leaves your devices.
             Stem separation needs a computer: about 1–3 minutes on an Apple Silicon Mac or NVIDIA GPU,
             10–15 minutes on other machines.</p>

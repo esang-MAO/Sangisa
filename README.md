@@ -17,10 +17,25 @@ See [docs/SPEC.md](docs/SPEC.md) for the full build spec.
 ## Status
 
 Milestone 1 (the pipeline CLI) is in place: song in, 16 trimmed and labeled slices plus `kit.json` out.
-A local web app (`sangisa serve`) lets you drop a song into the browser and get the kit back.
+The web app makes kits right in the browser (Quick split, no install) or hands the song to Sangisa on your
+computer (`sangisa serve`) for the full AI stem split.
 The exporters come next (see the build order in the spec).
 
-## Make kits from the browser
+## Make kits on your phone (no computer)
+
+Open <https://esang-mao.github.io/Sangisa/>, choose a song, pick **Make it on: This device**, tick the rights box and
+tap **Make the kit on this device**. Everything runs inside the browser: the song is never uploaded. A 3-minute song
+takes well under a minute on a laptop and a minute or two on a recent phone. Keep the page open while it works.
+
+On-device kits currently use a **Quick split** (harmonic/percussive separation, no AI model) into drums, bass and
+everything else. There's no vocal stem yet, and kicks can sound thin because their low end lands in the bass stem.
+Running the full AI stem split on the phone is the next step. Songs can be up to 7 minutes on a device, and the kit
+isn't saved there yet, so use **Download kit .zip** to keep it.
+
+The in-browser engine (`site/engine/`) is a JavaScript port of the Python pipeline. Its tests check it against
+librosa and the Python pipeline on the same song: filterbanks, MFCC, onsets, tempo, beats, key and the finished kit.
+
+## Make kits on your computer (full stem split)
 
 Songs are processed by Sangisa running on your own computer, so they never leave your devices.
 
@@ -126,7 +141,8 @@ backend/sangisa/
   worker/extractors/   per-stem candidate finders: drums, bass, vocals, other
   worker/scoring.py    isolation, clarity, loudness, loopability, uniqueness
   exporters/           Milestones 2-4
-site/                  static kit viewer published to GitHub Pages
+site/                  the web app (published to GitHub Pages)
+site/engine/           the pipeline in JavaScript, run in a Web Worker for on-device kits
 scripts/build_demo.py  builds the viewer's demo kit
 tests/                 pytest, on a generated 16-bar song (no copyrighted audio)
 ```
