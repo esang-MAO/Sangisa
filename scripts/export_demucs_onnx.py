@@ -251,7 +251,9 @@ def export(model, out: Path, name: str, fp16: bool) -> dict:
             raise SystemExit(f"external tensor {t.name} isn't float32; the browser loader assumes it is")
     raw = np.fromfile(out / data_name, dtype="<f4")
     params = sum(p.numel() for p in model.parameters()) + sum(b.numel() for b in model.buffers())
-    if raw.size > params + 2_000_000:  # folded positional embeddings are fine; the DFT tables aren't
+    # Folded positional embeddings add a few million values (about 2.4M for htdemucs); the
+    # inverse-DFT tables or an expanded embedding would add over 8M.
+    if raw.size > params + 4_000_000:
         raise SystemExit(f"the weights file has {raw.size} values but the model {params}: a computed table was stored")
     if fp16:
         raw.astype("<f2").tofile(out / f"{name}.weights.f16")
