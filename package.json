@@ -1,0 +1,12 @@
+{
+  "name": "sangisa-site",
+  "private": true,
+  "description": "Test and build dependencies for the in-browser engine (site/engine). The site itself has no build step.",
+  "type": "module",
+  "scripts": {
+    "vendor": "node scripts/vendor_ort.mjs"
+  },
+  "devDependencies": {
+    "onnxruntime-web": "1.30.0"
+  }
+}

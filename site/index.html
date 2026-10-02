@@ -49,18 +49,28 @@
         <fieldset class="where" id="where">
           <legend>Make it on</legend>
           <label class="choice"><input type="radio" name="where" value="device">
-            <span><b>This device</b><span class="meta">Quick split into drums, bass and the rest: no install, no
-              upload. No vocal stem yet, and kicks can sound thin.</span></span></label>
+            <span><b>This device</b><span class="meta">No install, no upload: the song never leaves this
+              phone or computer.</span></span></label>
           <label class="choice"><input type="radio" name="where" value="computer">
             <span><b>My computer</b><span class="meta">Full AI stem split, vocals included. Needs Sangisa running
               on your computer.</span></span></label>
+        </fieldset>
+
+        <fieldset class="where" id="engine">
+          <legend>Stem split</legend>
+          <label class="choice" id="engine-ai"><input type="radio" name="engine" value="ai">
+            <span><b>AI (HT-Demucs)</b><span class="meta" id="engine-ai-meta">Drums, bass, vocals and the rest, cleanly
+              separated. Downloads the model once (about 50 MB).</span></span></label>
+          <label class="choice"><input type="radio" name="engine" value="quick">
+            <span><b>Quick</b><span class="meta">A few seconds: drums, bass and the rest. No vocal stem, and kicks
+              can sound thin.</span></span></label>
         </fieldset>
 
         <label class="rights" id="hq-row"><input type="checkbox" id="hq-vocals"> <span>HQ vocals: take the vocals from
           the dedicated vocal model (BS-RoFormer). Cleaner vocal chops; separation takes about twice as long.</span></label>
 
         <div id="split-opts" class="split-opts" hidden>
-          <div class="make-row">
+          <div class="make-row" id="split-format-row">
             <label class="field">Format
               <select id="split-format">
                 <option value="wav">WAV, 24-bit</option>
@@ -70,9 +80,9 @@
             </label>
           </div>
           <label class="rights"><input type="checkbox" id="split-stems"> Also include drums, bass and other</label>
-          <label class="rights"><input type="checkbox" id="split-normalize"> <span>Normalize (louder, but the two
+          <label class="rights" id="split-normalize-row"><input type="checkbox" id="split-normalize"> <span>Normalize (louder, but the two
             files no longer add back up to the original)</span></label>
-          <label class="rights"><input type="checkbox" id="split-fast"> <span>Fast: vocals from the 4-stem model
+          <label class="rights" id="split-fast-row"><input type="checkbox" id="split-fast"> <span>Fast: vocals from the 4-stem model
             instead of the vocal model (quicker, less clean)</span></label>
         </div>
 
@@ -91,9 +101,9 @@
         <p id="make-hint" class="meta"></p>
 
         <details id="setup" class="setup">
-          <summary>How to start Sangisa on your computer (for the full stem split)</summary>
+          <summary>How to start Sangisa on your computer (HQ vocals, FLAC/MP3, long songs)</summary>
           <p>The song is processed by Sangisa running on your own computer, so it never leaves your devices.
-            Stem separation needs a computer: about 1–3 minutes on an Apple Silicon Mac or NVIDIA GPU,
+            On the computer, separation takes about 1–3 minutes on an Apple Silicon Mac or NVIDIA GPU,
             10–15 minutes on other machines.</p>
           <ol>
             <li>Once: install <a href="https://docs.astral.sh/uv/getting-started/installation/" target="_blank"

@@ -6,8 +6,11 @@ const AUDIO_EXT = /\.(wav|wave|aif|aiff|flac|mp3|m4a|aac|ogg|opus)$/i;
 const DEFAULT_SERVER = "http://localhost:8765";
 const isPhone = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
+const MODEL_BASE = "models/htdemucs/";
+
 const server = { base: null, info: null, key: null };
 const make = { song: null, tracking: null };
+const ai = { meta: null }; // the on-device AI model's description, when this site has it
 
 const store = {
   get(k) { try { return localStorage.getItem(`sangisa.${k}`); } catch { return null; } },
@@ -145,18 +148,44 @@ function mode() {
   return document.querySelector('input[name="mode"]:checked')?.value || "kit";
 }
 
-/** Show the options for the chosen mode. Acapella + instrumental needs the AI model, so it runs on the computer. */
+function engine() {
+  return ai.meta ? document.querySelector('input[name="engine"]:checked')?.value || "ai" : "quick";
+}
+
+function setEngine(value) {
+  const input = document.querySelector(`input[name="engine"][value="${value}"]`);
+  if (input) input.checked = true;
+}
+
+/**
+ * Show the options for the chosen mode and place. Acapella + instrumental needs a vocal stem, so on
+ * this device it needs the AI model (and without the model it runs on the computer).
+ */
 function updateMode() {
   const split = mode() === "split";
   $("#make-title").textContent = split ? "Split a song" : "Make a kit";
   $("#split-opts").hidden = !split;
   $("#pads-row").hidden = split;
   const device = document.querySelector('input[name="where"][value="device"]');
-  device.disabled = split;
-  device.closest(".choice").classList.toggle("disabled", split);
-  if (split && route() === "device") setWhere("computer");
-  if (!split && store.get("route") === "device" && route() !== "device") setWhere("device");
-  $("#hq-row").hidden = split || route() !== "computer";
+  const noDevice = split && !ai.meta;
+  device.disabled = noDevice;
+  device.closest(".choice").classList.toggle("disabled", noDevice);
+  if (noDevice && route() === "device") setWhere("computer");
+  if (!noDevice && store.get("route") === "device" && route() !== "device") setWhere("device");
+
+  const local = route() === "device";
+  const aiInput = document.querySelector('input[name="engine"][value="ai"]');
+  aiInput.disabled = !ai.meta;
+  $("#engine-ai").classList.toggle("disabled", !ai.meta);
+  $("#engine-ai-meta").textContent = ai.meta
+    ? `Drums, bass, vocals and the rest, cleanly separated. Downloads the model once (${Math.round(ai.meta.weights_mb)} MB). Fast with a GPU; several minutes on older phones.`
+    : "Not set up on this site yet (the model hasn't been published).";
+  if (!ai.meta) setEngine("quick");
+  else if (split) setEngine("ai");
+  $("#engine").hidden = !local || split;
+  // On this device the split is always 24-bit WAV of the AI model's vocals.
+  for (const id of ["#split-format-row", "#split-normalize-row", "#split-fast-row"]) $(id).hidden = local;
+  $("#hq-row").hidden = split || local;
   setConn($("#conn").dataset.state);
 }
 
@@ -166,7 +195,7 @@ function updateStart() {
   $("#start").disabled = !ok;
   $("#start").title = !make.song ? "Choose a song first" : !$("#rights").checked ? "Confirm you have the rights" :
     !local && !server.base ? "Start Sangisa on your computer first" : "";
-  $("#start").textContent = mode() === "split" ? "Make the acapella + instrumental"
+  $("#start").textContent = mode() === "split" ? `Make the acapella + instrumental${local ? " on this device" : ""}`
     : local ? "Make the kit on this device" : "Make the kit";
 }
 
@@ -260,13 +289,20 @@ async function keepAwake() {
 
 async function startLocal(song) {
   const pads = Object.fromEntries($("#pad-split").value.split(",").map((p) => p.split("=")).map(([k, v]) => [k, Number(v)]));
-  store.set("pads", $("#pad-split").value);
+  const split = mode() === "split";
+  const separator = split ? "ai" : engine();
+  if (!split) store.set("pads", $("#pad-split").value);
+  store.set("engine", ai.meta ? engine() : null);
   const now = () => Date.now() / 1000;
   const rec = {
     name: song.name, status: "running", stage: "ingest", stage_label: "Loading", stage_started: now(),
-    started: now(), stages: {}, error: null, local: true,
-    order: ["ingest", "separate", "analyze", "pick", "render"],
-    labels: { ingest: "Loading", separate: "Separating stems", analyze: "Analyzing tempo and key", pick: "Finding the best moments", render: "Building your kit" },
+    started: now(), stages: {}, error: null, local: true, value: null, note: "",
+    order: split ? ["ingest", "separate", "analyze", "split"] : ["ingest", "separate", "analyze", "pick", "render"],
+    labels: {
+      ingest: "Loading", separate: separator === "ai" ? "Separating stems (AI)" : "Separating stems",
+      analyze: "Analyzing tempo and key", pick: "Finding the best moments", render: "Building your kit",
+      split: "Writing the acapella and instrumental",
+    },
   };
   showView("progress");
   renderProgress(rec);
@@ -288,14 +324,25 @@ async function startLocal(song) {
       worker.onmessage = (e) => {
         const m = e.data;
         if (m.type === "progress") {
-          if (m.status === "start") Object.assign(rec, { stage: m.stage, stage_label: rec.labels[m.stage], stage_started: now() });
-          if (m.status === "done") rec.stages[m.stage] = m.stage === "ingest" ? now() - decodeStart : m.value;
+          if (m.status === "start") Object.assign(rec, { stage: m.stage, stage_label: rec.labels[m.stage], stage_started: now(), value: null });
+          if (m.status === "progress") rec.value = m.value;
+          if (m.status === "note") rec.note = m.note;
+          if (m.status === "done") {
+            rec.stages[m.stage] = m.stage === "ingest" ? now() - decodeStart : m.value;
+            rec.value = null;
+            if (m.stage === "separate") rec.note = "";
+          }
           renderProgress(rec);
+        } else if (m.type === "device") {
+          rec.device = m.device;
         } else if (m.type === "done") resolve(m);
         else if (m.type === "error") reject(new Error(m.message));
       };
       worker.onerror = (e) => reject(new Error(e.message || "The kit maker stopped unexpectedly (out of memory?)."));
-      worker.postMessage({ type: "run", channels, sr, name: song.name, sha256, pads, separator: "quick" }, channels.map((c) => c.buffer));
+      worker.postMessage({
+        type: "run", mode: split ? "split" : "kit", channels, sr, name: song.name, sha256, pads, separator,
+        modelBase: new URL(MODEL_BASE, document.baseURI).href, includeStems: split && $("#split-stems").checked,
+      }, channels.map((c) => c.buffer));
     });
     worker.terminate();
     rec.status = "done";
@@ -303,6 +350,11 @@ async function startLocal(song) {
     make.song = null;
     resetSongPicker();
     if (make.tracking !== "local") return; // the user went back
+    if (split) {
+      openLocalSplit(result.split, result.files, song);
+      toast("Made on this device. Download the files to keep them.");
+      return;
+    }
     openKit(result.kit, async (p) => {
       const f = result.files[p];
       if (!f) throw new Error(`Missing ${p}`);
@@ -379,8 +431,12 @@ function renderProgress(rec) {
   }).join("");
   const gpu = server.info && server.info.device !== "cpu";
   if (rec.local) {
+    if (rec.status === "running" && rec.value != null && rec.stage === "separate") {
+      const li = $(`#prog-stages li[data-status="active"] .t`);
+      if (li) li.textContent = `${Math.round(rec.value * 100)}% · ${li.textContent}`;
+    }
     $("#prog-note").textContent = rec.status === "running"
-      ? "Working on this device. Keep this page open; on a phone, keep the screen on."
+      ? [rec.note, "Keep this page open; on a phone, keep the screen on."].filter(Boolean).join(" ")
       : "";
     return;
   }
@@ -410,6 +466,23 @@ function fileUrl(id, path, download = false) {
 async function openSplit(id) {
   const info = await (await api(`/api/jobs/${id}/split.json`)).json();
   player.id = id;
+  const zipQ = server.key ? `?key=${encodeURIComponent(server.key)}` : "";
+  showSplit(info, (path, download) => fileUrl(id, path, download), `${server.base}/api/jobs/${id}/split.zip${zipQ}`);
+}
+
+/** The acapella + instrumental made on this device: play and download them from memory. */
+function openLocalSplit(info, files, original) {
+  for (const url of player.urls || []) URL.revokeObjectURL(url);
+  player.id = null;
+  player.urls = [];
+  const urls = {};
+  const blobUrl = (blob) => { const u = URL.createObjectURL(blob); player.urls.push(u); return u; };
+  for (const [path, bytes] of Object.entries(files)) urls[path] = blobUrl(new Blob([bytes], { type: "audio/wav" }));
+  urls["\0original"] = blobUrl(original);
+  showSplit({ ...info, original: "\0original" }, (path) => urls[path], null, files);
+}
+
+function showSplit(info, urlOf, zipUrl, localFiles = null) {
   showView("split");
   $("#split-title").textContent = info.song;
   const fmt = info.format === "mp3" ? "MP3 320 kbps" : `${info.format.toUpperCase()}${info.bit_depth ? `, ${info.bit_depth}-bit` : ""}`;
@@ -424,7 +497,7 @@ async function openSplit(id) {
   for (const [role, path] of [["acapella", info.files.acapella], ["instrumental", info.files.instrumental], ["original", info.original]]) {
     const a = new Audio();
     a.preload = "auto";
-    a.src = fileUrl(id, path);
+    a.src = urlOf(path, false);
     a.addEventListener("timeupdate", () => role === player.current && updateClock());
     a.addEventListener("loadedmetadata", () => role === player.current && updateClock());
     a.addEventListener("ended", () => role === player.current && ($("#sp-play").textContent = "▶"));
@@ -436,13 +509,26 @@ async function openSplit(id) {
   $("#sp-play").textContent = "▶";
   updateClock();
 
+  const name = (path) => path.split("/").pop();
   const links = [
     ["Acapella", info.files.acapella], ["Instrumental", info.files.instrumental],
     ...Object.entries(info.stems || {}).map(([k, v]) => [k[0].toUpperCase() + k.slice(1), v]),
-  ].map(([label, path]) => `<a class="btn small" href="${fileUrl(id, path, true)}">${esc(label)}</a>`);
-  const zipQ = server.key ? `?key=${encodeURIComponent(server.key)}` : "";
-  links.push(`<a class="btn small primary" href="${server.base}/api/jobs/${id}/split.zip${zipQ}">Both (.zip)</a>`);
+  ].map(([label, path]) => `<a class="btn small" href="${urlOf(path, true)}"${localFiles ? ` download="${esc(name(path))}"` : ""}>${esc(label)}</a>`);
+  if (zipUrl) links.push(`<a class="btn small primary" href="${zipUrl}">Both (.zip)</a>`);
+  else if (localFiles && window.JSZip) links.push('<button class="btn small primary" id="split-zip">All (.zip)</button>');
   $("#split-files").innerHTML = links.join("");
+  $("#split-zip")?.addEventListener("click", guard(async () => {
+    const zip = new JSZip();
+    for (const [path, bytes] of Object.entries(localFiles)) zip.file(name(path), bytes);
+    const blob = await zip.generateAsync({ type: "blob", compression: "STORE" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${info.song} - split.zip`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  }));
+  // Making a kit from a split reuses the computer's stems; on the device, start over from the song.
+  $("#split-kit").closest(".kit-from").hidden = !player.id;
 }
 
 function updateClock() {
@@ -516,6 +602,18 @@ $("#recent").addEventListener("click", guard(async (e) => {
   }
 }));
 
+/** Is the AI model published alongside this site? */
+async function checkModel() {
+  try {
+    const res = await fetch(new URL(`${MODEL_BASE}htdemucs.json`, document.baseURI), { cache: "no-cache" });
+    ai.meta = res.ok ? await res.json() : null;
+  } catch {
+    ai.meta = null;
+  }
+  if (ai.meta && !store.get("engine")) setEngine("ai");
+  updateMode();
+}
+
 // ---------------------------------------------------------------- wiring
 
 (function init() {
@@ -564,6 +662,9 @@ $("#recent").addEventListener("click", guard(async (e) => {
     track(player.id);
   });
   setWhere(store.get("route") || "device");
+  if (store.get("engine")) setEngine(store.get("engine"));
+  document.querySelectorAll('input[name="engine"]').forEach((r) => r.addEventListener("change", () => store.set("engine", engine())));
+  checkModel();
   document.querySelectorAll('input[name="where"]').forEach((r) => r.addEventListener("change", () => {
     store.set("route", route());
     updateMode();

@@ -15,3 +15,6 @@ jobs/
 *.mp3
 *.m4a
 site/demo/
+node_modules/
+site/vendor/ort/
+site/models/

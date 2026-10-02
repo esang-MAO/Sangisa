@@ -1,0 +1,49 @@
+# Exports HT-Demucs to ONNX for the on-device AI split (site/engine/demucs.js) and publishes it
+# as a GitHub Release, which the Pages workflow bundles with the site.
+#
+# Run it once (Actions -> Export AI model -> Run workflow); run it again only to change the model.
+# The model files (about 50 MB) live in the release, not in the repository.
+name: Export AI model
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Demucs model (a single model, not a bag)
+        default: htdemucs
+      tag:
+        description: Release tag to publish to
+        default: models-v1
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install PyTorch (CPU) and Demucs
+        run: |
+          uv venv -p 3.11 .venv-export
+          export VIRTUAL_ENV=$PWD/.venv-export
+          uv pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
+          uv pip install demucs==4.1.0 onnx==1.23.1 onnxruntime==1.30.0 onnxscript==0.7.2 numpy==2.4.6
+      - name: Export and check against PyTorch
+        run: .venv-export/bin/python scripts/export_demucs_onnx.py --model "${{ inputs.model }}" --fp16 --out out
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          MODEL: ${{ inputs.model }}
+        run: |
+          ls -la out
+          files=(out/"$MODEL".onnx out/"$MODEL".weights.f16 out/"$MODEL".json)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${files[@]}" --clobber
+          else
+            gh release create "$TAG" "${files[@]}" --title "AI model ($MODEL)" \
+              --notes "HT-Demucs exported to ONNX for Sangisa's on-device stem split. Built by the Export AI model workflow from ${GITHUB_SHA::7}. The Pages workflow bundles these files with the site."
+          fi
