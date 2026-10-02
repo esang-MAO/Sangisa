@@ -34,8 +34,8 @@ from fastapi.staticfiles import StaticFiles
 
 from sangisa import __version__
 from sangisa.config import Config, load_config
-from sangisa.job import STAGES, Job
-from sangisa.pipeline import LABELS, run_pipeline
+from sangisa.job import MODE_STAGES, Job
+from sangisa.pipeline import labels_for, run_pipeline
 from sangisa.worker.stages.ingest import AUDIO_EXTENSIONS
 
 DEFAULT_PORT = 8765
@@ -59,12 +59,14 @@ class JobRecord:
     started: float | None = None
     finished: float | None = None
     options: dict[str, Any] = field(default_factory=dict)
-    kit: dict[str, Any] | None = None  # name, bpm, key once done
+    mode: str = "kit"                  # kit | split (Acapella + instrumental)
+    kit: dict[str, Any] | None = None  # name, bpm, key once a kit is done
+    split: dict[str, Any] | None = None  # split.json once an acapella + instrumental is done
 
     def public(self) -> dict[str, Any]:
         data = asdict(self)
-        data["labels"] = LABELS
-        data["order"] = list(STAGES)
+        data["labels"] = labels_for(self.mode)
+        data["order"] = list(MODE_STAGES[self.mode])
         return data
 
 
@@ -77,7 +79,7 @@ class JobManager:
         self.base_config = base_config
         self.records: dict[str, JobRecord] = {}
         self.lock = threading.Lock()
-        self.queue: queue.Queue[tuple[str, Path]] = queue.Queue()
+        self.queue: queue.Queue[tuple[str, Path | None]] = queue.Queue()
         self._load_existing()
         threading.Thread(target=self._worker, name="sangisa-worker", daemon=True).start()
 
@@ -120,12 +122,25 @@ class JobManager:
             return sum(1 for r in self.records.values() if r.status in ("queued", "running"))
 
     # Work ----------------------------------------------------------------------
-    def submit(self, upload: Path, name: str, options: dict[str, Any]) -> JobRecord:
-        rec = JobRecord(id=uuid.uuid4().hex[:12], name=name, options=options)
+    def submit(self, upload: Path, name: str, options: dict[str, Any], mode: str = "kit") -> JobRecord:
+        rec = JobRecord(id=uuid.uuid4().hex[:12], name=name, options=options, mode=mode)
         with self.lock:
             self.records[rec.id] = rec
             self._save(rec)
         self.queue.put((rec.id, upload))
+        return rec
+
+    def continue_as(self, job_id: str, mode: str, options: dict[str, Any]) -> JobRecord:
+        """Run another mode on a finished job (e.g. make a kit from an acapella + instrumental)."""
+        rec = self.get(job_id)
+        with self.lock:
+            if rec.status in ("queued", "running"):
+                raise HTTPException(409, "That job is still running")
+            rec.mode, rec.status, rec.error = mode, "queued", None
+            rec.stages, rec.started, rec.finished = {}, None, None
+            rec.options = {**rec.options, **options}
+            self._save(rec)
+        self.queue.put((job_id, None))
         return rec
 
     def delete(self, job_id: str) -> None:
@@ -142,32 +157,46 @@ class JobManager:
             try:
                 self._run(job_id, upload)
             finally:
-                shutil.rmtree(upload.parent, ignore_errors=True)
+                if upload is not None:
+                    shutil.rmtree(upload.parent, ignore_errors=True)
 
-    def _run(self, job_id: str, upload: Path) -> None:
+    def _config(self, options: dict[str, Any]) -> Config:
+        overrides: dict[str, Any] = {"separation": {}, "split": {}}
+        if options.get("pads"):
+            split = options["pads"]
+            overrides["kit"] = {"pad_split": split, "pad_count": sum(split.values())}
+        if options.get("model"):
+            overrides["separation"]["model"] = options["model"]
+        if options.get("hq_vocals"):
+            overrides["separation"]["hq_vocals"] = True
+        for key in ("format", "fast", "normalize", "include_stems"):
+            if key in options:
+                overrides["split"][key] = options[key]
+        return _merged(self.base_config, overrides)
+
+    def _run(self, job_id: str, upload: Path | None) -> None:
         rec = self.records[job_id]
         rec.status, rec.started = "running", time.time()
         self._save(rec)
 
         def progress(stage: str, status: str, seconds: float | None) -> None:
             if status == "start":
-                rec.stage, rec.stage_label, rec.stage_started = stage, LABELS[stage], time.time()
+                rec.stage, rec.stage_label, rec.stage_started = stage, labels_for(rec.mode)[stage], time.time()
             else:
                 rec.stages[stage] = round(seconds or 0.0, 1)
             self._save(rec)
 
         try:
-            overrides: dict[str, Any] = {}
-            if rec.options.get("pads"):
-                split = rec.options["pads"]
-                overrides["kit"] = {"pad_split": split, "pad_count": sum(split.values())}
-            if rec.options.get("model"):
-                overrides["separation"] = {"model": rec.options["model"]}
-            cfg = _merged(self.base_config, overrides) if overrides else self.base_config
+            cfg = self._config(rec.options)
             job = Job(self.root / job_id)
-            run_pipeline(job, cfg, source=str(upload), rights_confirmed=True, progress=progress)
-            kit = json.loads(job.kit_path.read_text())
-            rec.kit = {"name": kit["kit_name"], "bpm": kit["analysis"]["bpm"], "key": kit["analysis"]["key"]}
+            run_pipeline(job, cfg, source=str(upload) if upload else None, rights_confirmed=True,
+                         mode=rec.mode, progress=progress)
+            if rec.mode == "split":
+                rec.split = json.loads((job.root / "split.json").read_text())
+                (job.root / "split.zip").unlink(missing_ok=True)
+            else:
+                kit = json.loads(job.kit_path.read_text())
+                rec.kit = {"name": kit["kit_name"], "bpm": kit["analysis"]["bpm"], "key": kit["analysis"]["key"]}
             rec.status = "done"
         except Exception as exc:  # report any stage failure to the browser
             rec.status, rec.error = "failed", str(exc) or exc.__class__.__name__
@@ -266,24 +295,22 @@ def create_app(
         rights: Annotated[bool, Form()] = False,
         pads: Annotated[str | None, Form()] = None,
         model: Annotated[str | None, Form()] = None,
+        mode: Annotated[str, Form()] = "kit",
+        hq_vocals: Annotated[bool, Form()] = False,
+        format: Annotated[str | None, Form()] = None,
+        fast: Annotated[bool, Form()] = False,
+        normalize: Annotated[bool, Form()] = False,
+        include_stems: Annotated[bool, Form()] = False,
     ) -> dict[str, Any]:
         if not rights:
             raise HTTPException(400, "Confirm you own this audio or have the rights to sample it.")
         name = Path(file.filename or "song").name
         if Path(name).suffix.lower() not in AUDIO_EXTENSIONS:
             raise HTTPException(415, f"{name} isn't an audio file Sangisa can read (WAV, AIFF, FLAC, MP3, M4A).")
-        options: dict[str, Any] = {}
-        if pads:
-            try:
-                options["pads"] = parse_pads(pads)
-                _merged(manager.base_config, {"kit": {"pad_split": options["pads"],
-                                                     "pad_count": sum(options["pads"].values())}})
-            except ValueError as exc:
-                raise HTTPException(400, f"Pad split: {exc}") from exc
-        if model:
-            if not re.fullmatch(r"[\w.\-]+", model):
-                raise HTTPException(400, "Unknown model name")
-            options["model"] = model
+        if mode not in MODE_STAGES:
+            raise HTTPException(400, "mode must be kit or split")
+        options = _options(manager, pads=pads, model=model, hq_vocals=hq_vocals, format=format, fast=fast,
+                           normalize=normalize, include_stems=include_stems)
 
         upload_dir = manager.root / "_uploads" / uuid.uuid4().hex
         upload_dir.mkdir(parents=True)
@@ -297,7 +324,42 @@ def create_app(
                     shutil.rmtree(upload_dir, ignore_errors=True)
                     raise HTTPException(413, f"That file is over {MAX_UPLOAD_MB} MB.")
                 out.write(chunk)
-        return manager.submit(dest, name, options).public()
+        return manager.submit(dest, name, options, mode).public()
+
+    @app.post("/api/jobs/{job_id}/kit", status_code=202)
+    def make_kit(
+        job_id: str,
+        pads: Annotated[str | None, Form()] = None,
+        hq_vocals: Annotated[bool, Form()] = False,
+    ) -> dict[str, Any]:
+        """Make a kit from a finished job, reusing its separation (e.g. the acapella)."""
+        return manager.continue_as(job_id, "kit", _options(manager, pads=pads, hq_vocals=hq_vocals)).public()
+
+    @app.get("/api/jobs/{job_id}/split.json")
+    def get_split(job_id: str) -> FileResponse:
+        job = manager.job(job_id)
+        path = job.root / "split.json"
+        if not path.exists() or not job.is_done("split"):
+            raise HTTPException(404, "There's no acapella + instrumental for this job yet")
+        return FileResponse(path, media_type="application/json")
+
+    @app.get("/api/jobs/{job_id}/split.zip")
+    def get_split_zip(job_id: str) -> FileResponse:
+        import zipfile
+
+        job = manager.job(job_id)
+        if not job.is_done("split"):
+            raise HTTPException(404, "There's no acapella + instrumental for this job yet")
+        info = json.loads((job.root / "split.json").read_text())
+        zpath = job.root / "split.zip"
+        if not zpath.exists():
+            tmp = zpath.with_suffix(".zip.tmp")
+            with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as z:
+                for rel in [*info["files"].values(), *info["stems"].values()]:
+                    z.write(job.abs(rel), f"{info['song']}/{Path(rel).relative_to('split')}")
+            tmp.replace(zpath)
+        name = f"{info['song']} - Acapella + Instrumental.zip"
+        return FileResponse(zpath, media_type="application/zip", filename=name)
 
     @app.get("/api/jobs/{job_id}")
     def get_job(job_id: str) -> dict[str, Any]:
@@ -316,17 +378,46 @@ def create_app(
         return FileResponse(job.kit_path, media_type="application/json")
 
     @app.get("/api/jobs/{job_id}/files/{path:path}")
-    def get_file(job_id: str, path: str) -> FileResponse:
+    def get_file(job_id: str, path: str, download: bool = False) -> FileResponse:
         job = manager.job(job_id)
         target = (job.root / path).resolve()
-        allowed = target == job.analysis_path or (job.slices_dir in target.parents and target.suffix == ".wav")
+        split_dir = job.root / "split"
+        allowed = (
+            target in (job.analysis_path, job.work_wav)  # work.wav: the original, for A/B listening
+            or (job.slices_dir in target.parents and target.suffix == ".wav")
+            or (split_dir in target.parents and target.suffix in (".wav", ".flac", ".mp3"))
+        )
         if not allowed or not target.is_file():
             raise HTTPException(404, "No such file")
-        return FileResponse(target)
+        return FileResponse(target, filename=target.name if download else None)
 
     if site_dir and (site_dir / "index.html").exists():
         app.mount("/", StaticFiles(directory=site_dir, html=True), name="site")
     return app
+
+
+def _options(manager: JobManager, **given: Any) -> dict[str, Any]:
+    """Validate the per-job options a form sent; returns only the ones that were set."""
+    options: dict[str, Any] = {}
+    if given.get("pads"):
+        try:
+            options["pads"] = parse_pads(given["pads"])
+            _merged(manager.base_config, {"kit": {"pad_split": options["pads"],
+                                                 "pad_count": sum(options["pads"].values())}})
+        except ValueError as exc:
+            raise HTTPException(400, f"Pad split: {exc}") from exc
+    if given.get("model"):
+        if not re.fullmatch(r"[\w.\-]+", given["model"]):
+            raise HTTPException(400, "Unknown model name")
+        options["model"] = given["model"]
+    if given.get("format"):
+        if given["format"] not in ("wav", "flac", "mp3"):
+            raise HTTPException(400, "format must be wav, flac or mp3")
+        options["format"] = given["format"]
+    for key in ("hq_vocals", "fast", "normalize", "include_stems"):
+        if given.get(key):
+            options[key] = True
+    return options
 
 
 def _local_origin(origin: str) -> bool:

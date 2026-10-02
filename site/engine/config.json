@@ -10,7 +10,16 @@
   "separation": {
     "backend": "audio-separator",
     "model": "htdemucs_ft.yaml",
+    "vocal_model": "model_bs_roformer_ep_317_sdr_12.9755.ckpt",
+    "hq_vocals": false,
     "model_dir": "~/.cache/sangisa/models"
+  },
+  "split": {
+    "format": "wav",
+    "bit_depth": 24,
+    "fast": false,
+    "normalize": false,
+    "include_stems": false
   },
   "analysis": {
     "min_bpm": 70.0,

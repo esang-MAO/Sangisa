@@ -12,8 +12,19 @@ allow_streaming_links = false # yt-dlp downloads; off by default (see spec: Lega
 
 [separation]
 backend = "audio-separator"
-model = "htdemucs_ft.yaml"
+model = "htdemucs_ft.yaml"          # 4 stems: drums, bass, vocals, other
+# Dedicated vocal model (BS-RoFormer): used for Acapella + instrumental, and for kits when hq_vocals is on.
+vocal_model = "model_bs_roformer_ep_317_sdr_12.9755.ckpt"
+hq_vocals = false                   # kits: vocals from vocal_model, drums/bass/other from model run on the rest
 model_dir = "~/.cache/sangisa/models"
+
+# Acapella + instrumental mode (sangisa song.wav --mode split)
+[split]
+format = "wav"          # wav | flac | mp3 (320 kbps, needs ffmpeg)
+bit_depth = 24          # wav and flac
+fast = false            # take the vocals from the 4-stem model instead of vocal_model: faster, less clean
+normalize = false       # off, so acapella + instrumental still add back up to the original
+include_stems = false   # also write drums, bass and other
 
 [analysis]
 min_bpm = 70.0

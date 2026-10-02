@@ -17,6 +17,17 @@ on:
         required: true
         type: boolean
         default: false
+      mode:
+        description: What to make
+        type: choice
+        default: kit
+        options:
+          - kit
+          - split
+      hq_vocals:
+        description: "Kit: take the vocals from the vocal model (BS-RoFormer); slower, cleaner"
+        type: boolean
+        default: false
       model:
         description: Separation model
         type: choice
@@ -69,19 +80,30 @@ jobs:
           echo "SONG=input/$name" >> "$GITHUB_ENV"
           ls -la input
 
-      - name: Build the kit (stem separation takes 10-15 minutes on CPU)
+      - name: Build it (stem separation takes 10-15 minutes on CPU)
         env:
+          MODE: ${{ inputs.mode }}
           MODEL: ${{ inputs.model }}
           PADS: ${{ inputs.pads }}
-        run: .venv/bin/sangisa "$SONG" --out job --i-have-rights --model "$MODEL" --pads "$PADS"
+          HQ: ${{ inputs.hq_vocals }}
+        run: |
+          args=(--mode "$MODE" --model "$MODEL")
+          if [ "$MODE" = kit ]; then args+=(--pads "$PADS"); fi
+          if [ "$HQ" = true ]; then args+=(--hq-vocals); fi
+          .venv/bin/sangisa "$SONG" --out job --i-have-rights "${args[@]}"
 
-      - name: Package the kit
+      - name: Package the result
         run: |
           mkdir kit
-          cp job/kit.json job/analysis.json kit/
-          cp -r job/slices kit/slices
+          if [ "${{ inputs.mode }}" = split ]; then
+            cp job/split/* kit/
+          else
+            cp job/kit.json job/analysis.json kit/
+            cp -r job/slices kit/slices
+          fi
 
       - name: Summary
+        if: ${{ inputs.mode == 'kit' }}
         env:
           OWNER: ${{ github.repository_owner }}
           REPO: ${{ github.event.repository.name }}

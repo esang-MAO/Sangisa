@@ -52,6 +52,7 @@ def run(job: Job, cfg: Config, source: str, rights_confirmed: bool) -> None:
             "sha256": _sha256(original),
             "duration_s": round(info.duration, 3),
             "sample_rate": info.samplerate,
+            "original_sample_rate": _original_rate(original) or info.samplerate,
             "rights_confirmed": True,
         }
     )
@@ -128,3 +129,20 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def _original_rate(path: Path) -> int | None:
+    """The source file's own sample rate, so Acapella + instrumental can be delivered at it."""
+    try:
+        return int(sf.info(str(path)).samplerate)
+    except Exception:  # not readable by libsndfile (e.g. M4A): ask ffprobe
+        pass
+    if shutil.which("ffprobe"):
+        result = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=sample_rate",
+             "-of", "csv=p=0", str(path)],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0 and result.stdout.strip().isdigit():
+            return int(result.stdout.strip())
+    return None

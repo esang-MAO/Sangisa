@@ -141,13 +141,33 @@ function setWhere(value) {
   if (input) input.checked = true;
 }
 
+function mode() {
+  return document.querySelector('input[name="mode"]:checked')?.value || "kit";
+}
+
+/** Show the options for the chosen mode. Acapella + instrumental needs the AI model, so it runs on the computer. */
+function updateMode() {
+  const split = mode() === "split";
+  $("#make-title").textContent = split ? "Split a song" : "Make a kit";
+  $("#split-opts").hidden = !split;
+  $("#pads-row").hidden = split;
+  const device = document.querySelector('input[name="where"][value="device"]');
+  device.disabled = split;
+  device.closest(".choice").classList.toggle("disabled", split);
+  if (split && route() === "device") setWhere("computer");
+  if (!split && store.get("route") === "device" && route() !== "device") setWhere("device");
+  $("#hq-row").hidden = split || route() !== "computer";
+  setConn($("#conn").dataset.state);
+}
+
 function updateStart() {
   const local = route() === "device";
   const ok = Boolean(make.song && $("#rights").checked && (local || server.base));
   $("#start").disabled = !ok;
   $("#start").title = !make.song ? "Choose a song first" : !$("#rights").checked ? "Confirm you have the rights" :
     !local && !server.base ? "Start Sangisa on your computer first" : "";
-  $("#start").textContent = local ? "Make the kit on this device" : "Make the kit";
+  $("#start").textContent = mode() === "split" ? "Make the acapella + instrumental"
+    : local ? "Make the kit on this device" : "Make the kit";
 }
 
 // ---------------------------------------------------------------- making the kit
@@ -176,8 +196,19 @@ async function startJob() {
   const form = new FormData();
   form.append("file", song, song.name);
   form.append("rights", "true");
-  form.append("pads", $("#pad-split").value);
-  store.set("pads", $("#pad-split").value);
+  form.append("mode", mode());
+  if (mode() === "split") {
+    form.append("format", $("#split-format").value);
+    if ($("#split-fast").checked) form.append("fast", "true");
+    if ($("#split-normalize").checked) form.append("normalize", "true");
+    if ($("#split-stems").checked) form.append("include_stems", "true");
+    store.set("split-format", $("#split-format").value);
+  } else {
+    form.append("pads", $("#pad-split").value);
+    if ($("#hq-vocals").checked) form.append("hq_vocals", "true");
+    store.set("pads", $("#pad-split").value);
+    store.set("hq", $("#hq-vocals").checked ? "1" : null);
+  }
 
   showView("progress");
   $("#prog-title").textContent = song.name;
@@ -313,7 +344,8 @@ async function track(id) {
     renderProgress(rec);
     if (rec.status === "done") {
       make.tracking = null;
-      await openServerKit(id);
+      if (rec.mode === "split") await openSplit(id);
+      else await openServerKit(id);
       return;
     }
     if (rec.status === "failed") {
@@ -363,6 +395,76 @@ async function openServerKit(id) {
   openKit(kit, async (p) => (await api(`/api/jobs/${id}/files/${enc(p)}`)).arrayBuffer());
 }
 
+// ---------------------------------------------------------------- acapella + instrumental
+
+const player = { id: null, audios: {}, current: "acapella" };
+
+function fileUrl(id, path, download = false) {
+  const q = new URLSearchParams();
+  if (server.key) q.set("key", server.key);
+  if (download) q.set("download", "1");
+  const enc = path.split("/").map(encodeURIComponent).join("/");
+  return `${server.base}/api/jobs/${id}/files/${enc}${q.size ? `?${q}` : ""}`;
+}
+
+async function openSplit(id) {
+  const info = await (await api(`/api/jobs/${id}/split.json`)).json();
+  player.id = id;
+  showView("split");
+  $("#split-title").textContent = info.song;
+  const fmt = info.format === "mp3" ? "MP3 320 kbps" : `${info.format.toUpperCase()}${info.bit_depth ? `, ${info.bit_depth}-bit` : ""}`;
+  $("#split-meta").textContent = [
+    info.bpm ? `${Math.round(info.bpm * 10) / 10} BPM` : null, info.key, `${fmt}, ${info.sample_rate / 1000} kHz`,
+    info.normalized ? "normalized" : "adds back up to the original",
+  ].filter(Boolean).join(" · ");
+
+  const box = $("#split-audio");
+  box.innerHTML = "";
+  player.audios = {};
+  for (const [role, path] of [["acapella", info.files.acapella], ["instrumental", info.files.instrumental], ["original", info.original]]) {
+    const a = new Audio();
+    a.preload = "auto";
+    a.src = fileUrl(id, path);
+    a.addEventListener("timeupdate", () => role === player.current && updateClock());
+    a.addEventListener("loadedmetadata", () => role === player.current && updateClock());
+    a.addEventListener("ended", () => role === player.current && ($("#sp-play").textContent = "▶"));
+    box.append(a);
+    player.audios[role] = a;
+  }
+  player.current = "acapella";
+  document.querySelector('input[name="sp-src"][value="acapella"]').checked = true;
+  $("#sp-play").textContent = "▶";
+  updateClock();
+
+  const links = [
+    ["Acapella", info.files.acapella], ["Instrumental", info.files.instrumental],
+    ...Object.entries(info.stems || {}).map(([k, v]) => [k[0].toUpperCase() + k.slice(1), v]),
+  ].map(([label, path]) => `<a class="btn small" href="${fileUrl(id, path, true)}">${esc(label)}</a>`);
+  const zipQ = server.key ? `?key=${encodeURIComponent(server.key)}` : "";
+  links.push(`<a class="btn small primary" href="${server.base}/api/jobs/${id}/split.zip${zipQ}">Both (.zip)</a>`);
+  $("#split-files").innerHTML = links.join("");
+}
+
+function updateClock() {
+  const a = player.audios[player.current];
+  if (!a) return;
+  const d = Number.isFinite(a.duration) ? a.duration : 0;
+  const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+  $("#sp-time").textContent = `${fmt(a.currentTime)} / ${fmt(d)}`;
+  if (!player.seeking) $("#sp-seek").value = d ? Math.round((a.currentTime / d) * 1000) : 0;
+}
+
+function switchSource(role) {
+  const from = player.audios[player.current], to = player.audios[role];
+  if (!to || from === to) return;
+  const playing = !from.paused;
+  from.pause();
+  to.currentTime = from.currentTime;
+  player.current = role;
+  if (playing) to.play().catch(() => {});
+  updateClock();
+}
+
 // ---------------------------------------------------------------- your kits
 
 async function refreshRecent() {
@@ -380,13 +482,18 @@ async function refreshRecent() {
   }
   list.innerHTML = jobs.slice(0, 20).map((j) => {
     const when = new Date(j.created * 1000).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
-    const detail = j.status === "done" && j.kit
-      ? `${Math.round(j.kit.bpm)} BPM · ${j.kit.key || "key unknown"}`
+    const facts = j.kit || j.split;
+    const what = [j.kit ? "Kit" : null, j.split ? "Acapella + instrumental" : null].filter(Boolean).join(" · ");
+    const detail = j.status === "done" && facts
+      ? `${what} · ${facts.bpm ? Math.round(facts.bpm) + " BPM" : ""} · ${facts.key || "key unknown"}`
       : j.status === "failed" ? `Failed: ${j.error}` : j.status === "queued" ? "Waiting…" : `Working: ${j.stage_label || "starting"}`;
-    const action = j.status === "done" ? "Open" : j.status === "failed" ? "" : "Progress";
+    const buttons = [];
+    if (j.status === "queued" || j.status === "running") buttons.push('<button class="btn small" data-act="open">Progress</button>');
+    if (j.kit && j.status !== "running" && j.status !== "queued") buttons.push('<button class="btn small" data-act="open">Kit</button>');
+    if (j.split && j.status !== "running" && j.status !== "queued") buttons.push('<button class="btn small" data-act="split">Acapella</button>');
     return `<li data-id="${j.id}" data-status="${j.status}">
       <div><b>${esc(j.kit?.name || j.name)}</b><span class="meta">${esc(detail)} · ${when}</span></div>
-      <div class="row">${action ? `<button class="btn small" data-act="open">${action}</button>` : ""}
+      <div class="row">${buttons.join("")}
         ${j.status === "done" || j.status === "failed" ? '<button class="btn small" data-act="delete" aria-label="Delete">✕</button>' : ""}</div>
     </li>`;
   }).join("");
@@ -398,10 +505,12 @@ $("#recent").addEventListener("click", guard(async (e) => {
   if (!btn || !li) return;
   const id = li.dataset.id;
   if (btn.dataset.act === "open") {
-    if (li.dataset.status === "done") await openServerKit(id);
-    else track(id);
+    if (li.dataset.status === "queued" || li.dataset.status === "running") track(id);
+    else await openServerKit(id);
+  } else if (btn.dataset.act === "split") {
+    await openSplit(id);
   } else if (btn.dataset.act === "delete") {
-    if (!confirm("Delete this kit from your computer?")) return;
+    if (!confirm("Delete this from your computer?")) return;
     await api(`/api/jobs/${id}`, { method: "DELETE" });
     refreshRecent();
   }
@@ -426,10 +535,38 @@ $("#recent").addEventListener("click", guard(async (e) => {
 
   $("#song-input").onchange = guard((e) => e.target.files[0] && chooseSong(e.target.files[0]));
   $("#rights").onchange = updateStart;
+  const savedMode = store.get("mode");
+  if (savedMode) document.querySelector(`input[name="mode"][value="${savedMode}"]`).checked = true;
+  if (store.get("split-format")) $("#split-format").value = store.get("split-format");
+  $("#hq-vocals").checked = store.get("hq") === "1";
+  document.querySelectorAll('input[name="mode"]').forEach((r) => r.addEventListener("change", () => {
+    store.set("mode", mode());
+    updateMode();
+  }));
+  $("#sp-play").onclick = () => {
+    const a = player.audios[player.current];
+    if (!a) return;
+    if (a.paused) { a.play().catch((e) => toast(e.message)); $("#sp-play").textContent = "❚❚"; }
+    else { a.pause(); $("#sp-play").textContent = "▶"; }
+  };
+  $("#sp-seek").addEventListener("input", () => {
+    const a = player.audios[player.current];
+    player.seeking = true;
+    if (a && Number.isFinite(a.duration)) a.currentTime = ($("#sp-seek").value / 1000) * a.duration;
+  });
+  $("#sp-seek").addEventListener("change", () => { player.seeking = false; });
+  document.querySelectorAll('input[name="sp-src"]').forEach((r) => r.addEventListener("change", () => switchSource(r.value)));
+  $("#split-back").onclick = () => { showView("welcome"); refreshRecent(); };
+  $("#split-kit").onclick = guard(async () => {
+    const form = new FormData();
+    form.append("pads", $("#pad-split").value);
+    await api(`/api/jobs/${player.id}/kit`, { method: "POST", body: form });
+    track(player.id);
+  });
   setWhere(store.get("route") || "device");
   document.querySelectorAll('input[name="where"]').forEach((r) => r.addEventListener("change", () => {
     store.set("route", route());
-    setConn($("#conn").dataset.state);
+    updateMode();
   }));
   $("#start").onclick = guard(startJob);
   $("#prog-back").onclick = () => {
@@ -446,5 +583,6 @@ $("#recent").addEventListener("click", guard(async (e) => {
   });
   // Check again when the user comes back to the tab (e.g. after starting Sangisa).
   document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && !server.base && connect());
+  updateMode();
   connect();
 })();

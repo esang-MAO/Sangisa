@@ -35,6 +35,33 @@ isn't saved there yet, so use **Export for Koala** to keep it.
 The in-browser engine (`site/engine/`) is a JavaScript port of the Python pipeline. Its tests check it against
 librosa and the Python pipeline on the same song: filterbanks, MFCC, onsets, tempo, beats, key and the finished kit.
 
+## Acapella + instrumental
+
+Pick **Acapella + instrumental** at the top of the app, or run `sangisa song.wav --mode split --out job/
+--i-have-rights`. You get two full-length files:
+
+```text
+job/split/<Song> - Acapella - 92bpm Fmin.wav
+job/split/<Song> - Instrumental - 92bpm Fmin.wav
+```
+
+- The vocals come from a dedicated vocal model, BS-RoFormer (`separation.vocal_model`). `--fast` uses the 4-stem
+  model instead: quicker, less clean.
+- Both files match the original in length, start point and sample rate, so they line up at bar 1 in a DAW. The
+  instrumental is the original minus the acapella, so unless you normalize, the two add back up to the original.
+- `--format wav|flac|mp3` sets the format (24-bit WAV by default, MP3 at 320 kbps). `--normalize` makes both
+  files louder. `--include-stems` also writes drums, bass and other.
+- In the app you can play the result, switch between acapella, instrumental and the original at the same spot
+  (A/B), download either file or both as a zip, and choose **Make a kit from this**. That makes a kit from the same
+  song, reusing the acapella, so only the instrumental is split into drums, bass and other.
+
+## HQ vocals for kits
+
+Tick **HQ vocals** (or pass `--hq-vocals`) to take a kit's vocal stem from the vocal model. Drums, bass and other
+then come from the 4-stem model run on the instrumental. Vocal chops come out cleaner, and separation takes about
+twice as long. Both features need the AI models, so for now they run with Sangisa on your computer. They come to the
+phone with the on-device model.
+
 ## Export to Koala Sampler (or any sampler / DAW)
 
 In the kit view, **Export for Koala** builds a zip of numbered WAVs:
@@ -143,6 +170,8 @@ kit/
   work.wav           44.1 kHz / 24-bit / stereo working copy
   stems/             drums.wav bass.wav vocals.wav other.wav (sample-aligned with work.wav)
   analysis.json      BPM, beat grid, downbeats, key, sections
+  pair/              acapella + instrumental as separated (32-bit float), reused between modes
+  split/             the delivered Acapella + Instrumental files (--mode split), with split.json
   candidates.json    every scored candidate (feeds swaps and re-rolls)
   kit.json           the kit: pads -> slices, with per-slice metadata
   slices/            Drums_Kick_1_120bpm_Fmin.wav, Bass_Loop_A_2bar_120bpm_Fmin.wav, ...

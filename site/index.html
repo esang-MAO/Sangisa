@@ -31,8 +31,13 @@
     <section id="welcome" class="welcome">
       <div class="card make">
         <div class="make-head">
-          <h2>Make a kit</h2>
+          <h2 id="make-title">Make a kit</h2>
           <span id="conn" class="conn" data-state="checking"><i></i><span id="conn-text">Looking for Sangisa…</span></span>
+        </div>
+
+        <div class="seg" role="radiogroup" aria-label="What to make">
+          <label><input type="radio" name="mode" value="kit" checked><span>Sample pack</span></label>
+          <label><input type="radio" name="mode" value="split"><span>Acapella + instrumental</span></label>
         </div>
 
         <label id="song-drop" class="drop song-drop">
@@ -51,7 +56,27 @@
               on your computer.</span></span></label>
         </fieldset>
 
-        <div class="make-row">
+        <label class="rights" id="hq-row"><input type="checkbox" id="hq-vocals"> <span>HQ vocals: take the vocals from
+          the dedicated vocal model (BS-RoFormer). Cleaner vocal chops; separation takes about twice as long.</span></label>
+
+        <div id="split-opts" class="split-opts" hidden>
+          <div class="make-row">
+            <label class="field">Format
+              <select id="split-format">
+                <option value="wav">WAV, 24-bit</option>
+                <option value="flac">FLAC</option>
+                <option value="mp3">MP3, 320 kbps</option>
+              </select>
+            </label>
+          </div>
+          <label class="rights"><input type="checkbox" id="split-stems"> Also include drums, bass and other</label>
+          <label class="rights"><input type="checkbox" id="split-normalize"> <span>Normalize (louder, but the two
+            files no longer add back up to the original)</span></label>
+          <label class="rights"><input type="checkbox" id="split-fast"> <span>Fast: vocals from the 4-stem model
+            instead of the vocal model (quicker, less clean)</span></label>
+        </div>
+
+        <div class="make-row" id="pads-row">
           <label class="field">Pads
             <select id="pad-split">
               <option value="drums=6,vocals=4,bass=3,other=3">6 drums · 4 vocals · 3 bass · 3 other</option>
@@ -113,6 +138,37 @@ uv sync --extra separation</code></pre></li>
       <div class="row">
         <button id="prog-back" class="btn small">Back</button>
       </div>
+    </section>
+
+    <section id="split" class="card split" hidden>
+      <div class="split-head">
+        <div>
+          <h2 id="split-title"></h2>
+          <p id="split-meta" class="meta"></p>
+        </div>
+        <button id="split-back" class="btn small">← Back</button>
+      </div>
+
+      <div class="player">
+        <button id="sp-play" class="btn primary play" aria-label="Play">▶</button>
+        <input id="sp-seek" type="range" min="0" max="1000" value="0" aria-label="Position">
+        <span id="sp-time" class="meta">0:00</span>
+      </div>
+      <div class="seg" role="radiogroup" aria-label="Listen to">
+        <label><input type="radio" name="sp-src" value="acapella" checked><span>Acapella</span></label>
+        <label><input type="radio" name="sp-src" value="instrumental"><span>Instrumental</span></label>
+        <label><input type="radio" name="sp-src" value="original"><span>Original</span></label>
+      </div>
+      <p class="meta">Switch while it plays to compare (A/B); it carries on from the same spot.</p>
+
+      <h3>Download</h3>
+      <div id="split-files" class="row"></div>
+
+      <div class="kit-from">
+        <button id="split-kit" class="btn primary">Make a kit from this</button>
+        <span class="meta">Reuses this acapella; only the instrumental is split into drums, bass and other.</span>
+      </div>
+      <div id="split-audio" hidden></div>
     </section>
 
     <section id="kit" class="kit" hidden>
