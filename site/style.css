@@ -101,6 +101,17 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.01em; }
 .kit-drop { padding: 18px; box-shadow: none; }
 
 .make-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.where { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-width: 0; }
+.where legend { font-size: 12px; font-weight: 600; color: var(--muted); padding: 0; margin-bottom: 4px; }
+.choice {
+  display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line);
+  border-radius: 10px; cursor: pointer; font-size: 14px; min-width: 0;
+}
+.choice:has(input:checked) { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.choice input { margin-top: 3px; flex: none; }
+.choice > span { display: grid; gap: 2px; min-width: 0; }
+.choice .meta { margin: 0; font-size: 12px; }
+@media (max-width: 480px) { .where { grid-template-columns: 1fr; } }
 .field { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .field select, .field input {
   font: inherit; font-size: 14px; color: var(--ink); background: var(--panel); border: 1px solid var(--line);
