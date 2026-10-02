@@ -125,8 +125,7 @@ uv sync --extra separation</code></pre></li>
           <button id="back-home" class="btn small">← Kits</button>
           <div id="banks" class="banks" role="tablist"></div>
           <button id="stop-all" class="btn small">Stop all</button>
-          <button id="save-zip" class="btn small">Download kit .zip</button>
-          <button id="save-json" class="btn small">Save kit.json</button>
+          <button id="open-export" class="btn small primary">Export for Koala</button>
         </div>
       </div>
 
@@ -154,6 +153,52 @@ uv sync --extra separation</code></pre></li>
     <p>Releasing music with uncleared samples can require permission from the rights holders. Only build kits from
       audio you own or have permission to sample.</p>
   </footer>
+  <dialog id="export-dialog" class="export">
+    <form method="dialog" class="export-body">
+      <h3>Export for Koala Sampler</h3>
+      <p class="meta">Numbered WAVs in pad order, one folder per bank, plus a README with the BPM, key and pad map.
+        Works with any sampler or DAW too.</p>
+
+      <fieldset class="opts">
+        <legend>Pad order</legend>
+        <label class="choice"><input type="radio" name="ex-order" value="top-first">
+          <span><b>Top row first</b><span class="meta">Koala fills pads left to right from the top.</span></span></label>
+        <label class="choice"><input type="radio" name="ex-order" value="bottom-first">
+          <span><b>Bottom row first</b><span class="meta">Move, MPC, Ableton: pad 1 is bottom-left.</span></span></label>
+      </fieldset>
+
+      <div class="make-row">
+        <label class="field">Sample rate
+          <select id="ex-rate"><option value="48000">48 kHz (iPhone, Koala)</option><option value="44100">44.1 kHz</option></select>
+        </label>
+        <label class="field">Bit depth
+          <select id="ex-bits"><option value="24">24-bit</option><option value="32">32-bit float</option><option value="16">16-bit</option></select>
+        </label>
+      </div>
+      <label class="rights"><input type="checkbox" id="ex-extras"> Include the backup sounds (Extras folder)</label>
+
+      <p id="ex-status" class="meta" aria-live="polite"></p>
+      <div class="row">
+        <button type="button" id="ex-share" class="btn primary" disabled>Share…</button>
+        <button type="button" id="ex-download" class="btn" disabled>Download .zip</button>
+        <button value="close" class="btn">Close</button>
+      </div>
+
+      <details class="setup">
+        <summary>Loading it into Koala</summary>
+        <ol>
+          <li><b>Share…</b> → <b>Save to Files</b> (or AirDrop it), then tap the .zip in Files to unzip it.</li>
+          <li>In Koala, open the sample browser and go to the kit's <code>Bank_A</code> folder (add the folder as a
+            location if needed).</li>
+          <li>Select all the files and drag them onto the first empty pad: they fill the pads in number order.</li>
+        </ol>
+        <p class="meta">If the kick doesn't land where it is here (bottom-left), switch the pad order.</p>
+      </details>
+      <p class="meta">Want to reopen this kit in Sangisa later? <a href="#" id="ex-sangisa">Save it as a Sangisa kit</a>
+        (zip with kit.json).</p>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" role="status" hidden></div>
 </body>
 </html>

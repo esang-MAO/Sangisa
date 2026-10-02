@@ -431,26 +431,89 @@ async function downloadSlice(slice) {
   }
 }
 
+/** The kit as Sangisa saves it (kit.json + slices/), to reopen here later. */
 async function downloadKitZip() {
   if (!window.JSZip) throw new Error("The zip writer didn't load.");
   const { kit } = state;
-  const btn = $("#save-zip");
-  btn.disabled = true;
+  const zip = new JSZip();
+  zip.file("kit.json", JSON.stringify(kit, null, 2) + "\n");
+  for (const s of kit.slices) zip.file(s.file, await rawFor(s));
+  const blob = await zip.generateAsync({ type: "blob", compression: "STORE" });
+  saveBlob(blob, `${(kit.kit_name || "Sangisa kit").replace(/[^\w\- ]+/g, "_")}.zip`);
+}
+
+// ---------------------------------------------------------------- export (Koala Sampler, any DAW)
+
+const exportState = { file: null, building: 0 };
+const prefs = {
+  get(k, d) { try { return localStorage.getItem(`sangisa.export.${k}`) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(`sangisa.export.${k}`, v); } catch { /* private mode */ } },
+};
+
+function exportOptions() {
+  return {
+    order: document.querySelector('input[name="ex-order"]:checked')?.value || "top-first",
+    sampleRate: Number($("#ex-rate").value),
+    bits: Number($("#ex-bits").value),
+    extras: $("#ex-extras").checked,
+  };
+}
+
+function openExport() {
+  stopAll();
+  const order = prefs.get("order", "top-first");
+  document.querySelector(`input[name="ex-order"][value="${order}"]`).checked = true;
+  $("#ex-rate").value = prefs.get("rate", "48000");
+  $("#ex-bits").value = prefs.get("bits", "24");
+  $("#ex-extras").checked = prefs.get("extras", "0") === "1";
+  $("#export-dialog").showModal();
+  prepareExport();
+}
+
+async function prepareExport() {
+  const build = ++exportState.building;
+  const opts = exportOptions();
+  prefs.set("order", opts.order); prefs.set("rate", opts.sampleRate); prefs.set("bits", opts.bits);
+  prefs.set("extras", opts.extras ? "1" : "0");
+  exportState.file = null;
+  $("#ex-share").disabled = $("#ex-download").disabled = true;
+  const status = $("#ex-status");
+  status.textContent = "Preparing…";
   try {
+    if (!window.JSZip) throw new Error("The zip writer didn't load.");
+    const { buildExport } = await import("./engine/export.js");
+    const { folder, files } = await buildExport(state.kit, rawFor, {
+      ...opts,
+      onProgress: (f) => { if (build === exportState.building) status.textContent = `Preparing… ${Math.round(f * 100)}%`; },
+    });
+    if (build !== exportState.building) return; // options changed meanwhile
     const zip = new JSZip();
-    zip.file("kit.json", JSON.stringify(kit, null, 2) + "\n");
-    let done = 0;
-    for (const s of kit.slices) {
-      zip.file(s.file, await rawFor(s));
-      btn.textContent = `Packing ${++done}/${kit.slices.length}…`;
-    }
+    for (const f of files) zip.file(f.path, f.data);
     const blob = await zip.generateAsync({ type: "blob", compression: "STORE" });
-    saveBlob(blob, `${(kit.kit_name || "Sangisa kit").replace(/[^\w\- ]+/g, "_")}.zip`);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Download kit .zip";
+    if (build !== exportState.building) return;
+    exportState.file = new File([blob], `${folder}.zip`, { type: "application/zip" });
+    const wavs = files.filter((f) => f.path.endsWith(".wav")).length;
+    status.textContent = `Ready: ${folder}.zip · ${wavs} WAVs · ${(blob.size / 1048576).toFixed(1)} MB`;
+    $("#ex-download").disabled = false;
+    const canShare = navigator.canShare?.({ files: [exportState.file] });
+    $("#ex-share").disabled = !canShare;
+    $("#ex-share").hidden = !canShare;
+  } catch (e) {
+    if (build === exportState.building) status.textContent = `Couldn't prepare the export: ${e.message}`;
   }
 }
+
+$("#export-dialog").addEventListener("change", (e) => { if (e.target.closest(".export-body")) prepareExport(); });
+$("#ex-download").onclick = () => exportState.file && saveBlob(exportState.file, exportState.file.name);
+$("#ex-share").onclick = guard(async () => {
+  if (!exportState.file) return;
+  try {
+    await navigator.share({ files: [exportState.file], title: exportState.file.name.replace(/\.zip$/, "") });
+  } catch (e) {
+    if (e.name !== "AbortError") throw e; // closing the share sheet isn't an error
+  }
+});
+$("#ex-sangisa").onclick = (e) => { e.preventDefault(); guard(downloadKitZip)(); };
 
 function toast(msg) {
   const t = $("#toast");
@@ -478,9 +541,7 @@ $("#zip-input").onchange = guard((e) => e.target.files[0] && loadZip(e.target.fi
 $("#dir-input").onchange = guard((e) => e.target.files.length && loadFolder(e.target.files));
 $("#stop-all").onclick = stopAll;
 $("#back-home").onclick = () => { showView("welcome"); refreshRecent(); };
-$("#save-zip").onclick = guard(downloadKitZip);
-$("#save-json").onclick = () =>
-  saveBlob(new Blob([JSON.stringify(state.kit, null, 2) + "\n"], { type: "application/json" }), "kit.json");
+$("#open-export").onclick = () => openExport();
 
 let dragDepth = 0;
 window.addEventListener("dragenter", (e) => { e.preventDefault(); dragDepth++; document.body.classList.add("dragging"); });

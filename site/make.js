@@ -277,7 +277,7 @@ async function startLocal(song) {
       if (!f) throw new Error(`Missing ${p}`);
       return f;
     });
-    toast("Made on this device. Use Download kit .zip to keep it.");
+    toast("Made on this device. Use Export for Koala to keep it.");
   } catch (e) {
     if (e.message !== "cancelled") fail(e.message || String(e));
   } finally {
