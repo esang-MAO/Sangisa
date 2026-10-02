@@ -25,6 +25,16 @@ def test_engine_matches_python(tmp_path):
     assert result.returncode == 0, "JavaScript engine tests failed (output above)"
 
 
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js isn't installed")
+def test_export_js():
+    result = subprocess.run(
+        ["node", "--test", "--test-reporter=spec", str(ROOT / "tests/engine/export.test.mjs")],
+        capture_output=True, text=True, timeout=300,
+    )
+    print(result.stdout[-4000:], result.stderr[-2000:])
+    assert result.returncode == 0, "Export tests failed (output above)"
+
+
 def test_engine_config_matches_python_defaults():
     """site/engine/config.json is a copy of default_config.toml; regenerate it if this fails:
     uv run python -c "import json; from sangisa.config import default_config;

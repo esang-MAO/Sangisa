@@ -30,10 +30,30 @@ takes well under a minute on a laptop and a minute or two on a recent phone. Kee
 On-device kits currently use a **Quick split** (harmonic/percussive separation, no AI model) into drums, bass and
 everything else. There's no vocal stem yet, and kicks can sound thin because their low end lands in the bass stem.
 Running the full AI stem split on the phone is the next step. Songs can be up to 7 minutes on a device, and the kit
-isn't saved there yet, so use **Download kit .zip** to keep it.
+isn't saved there yet, so use **Export for Koala** to keep it.
 
 The in-browser engine (`site/engine/`) is a JavaScript port of the Python pipeline. Its tests check it against
 librosa and the Python pipeline on the same song: filterbanks, MFCC, onsets, tempo, beats, key and the finished kit.
+
+## Export to Koala Sampler (or any sampler / DAW)
+
+In the kit view, **Export for Koala** builds a zip of numbered WAVs:
+
+```text
+My Song Kit - 92bpm Fmin/
+  Bank_A/01_Bass_loop_B_2_bar.wav … 13_Kick_1.wav … 16_Perc_1.wav
+  Extras/…            (optional: the backup sounds)
+  README.txt          (BPM, key, the pad map, import steps)
+```
+
+- **Pad order:** *Top row first* (Koala fills pads left to right from the top) keeps the layout you see in Sangisa,
+  so the kick stays bottom-left. *Bottom row first* suits Move, MPC and Ableton, where pad 1 is bottom-left.
+- **Audio:** 48 kHz (what the iPhone and Koala run at) or 44.1 kHz, as 24-bit, 32-bit float or 16-bit WAV.
+  The sample-rate conversion is band-limited, and loops stay whole bars.
+- On iPhone, **Share…** opens the share sheet. Choose **Save to Files** and tap the zip there to unzip it. In Koala,
+  browse to `Bank_A`, select all the files and drag them onto the first empty pad.
+
+Your choices are remembered for next time.
 
 ## Make kits on your computer (full stem split)
 
@@ -50,7 +70,7 @@ Songs are processed by Sangisa running on your own computer, so they never leave
    uv run sangisa serve
    ```
    Open <http://localhost:8765>, drop in a song, tick the rights box, and choose **Make the kit**. The app shows each
-   stage as it runs, then opens the pad grid. **Your kits** keeps every kit you've made, and **Download kit .zip** saves
+   stage as it runs, then opens the pad grid. **Your kits** keeps every kit you've made, and **Export for Koala** saves
    one. The <https://esang-mao.github.io/Sangisa/> page also connects to it in Chrome, Edge and Firefox.
 3. From a phone or tablet on the same Wi-Fi, start it with `uv run sangisa serve --lan` and scan the QR code it
    prints. Other devices need the access key in that link; other websites can't use the server.
@@ -142,7 +162,8 @@ backend/sangisa/
   worker/scoring.py    isolation, clarity, loudness, loopability, uniqueness
   exporters/           Milestones 2-4
 site/                  the web app (published to GitHub Pages)
-site/engine/           the pipeline in JavaScript, run in a Web Worker for on-device kits
+site/engine/           the pipeline in JavaScript, run in a Web Worker for on-device kits; export.js
+                       writes the numbered-WAV (Koala) export
 scripts/build_demo.py  builds the viewer's demo kit
 tests/                 pytest, on a generated 16-bar song (no copyrighted audio)
 ```

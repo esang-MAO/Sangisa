@@ -232,3 +232,16 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.01em; }
   .lane { grid-template-columns: 58px 1fr; }
   .sections { margin-left: 68px; }
 }
+
+.export {
+  border: 0; border-radius: 16px; padding: 0; width: min(520px, calc(100% - 24px)); max-height: calc(100% - 24px);
+  background: var(--panel); color: var(--ink); box-shadow: 0 10px 40px rgb(0 0 0 / 0.3);
+}
+.export::backdrop { background: rgb(0 0 0 / 0.45); }
+.export-body { display: grid; gap: 12px; padding: 20px; }
+.export-body h3 { font-size: 18px; }
+.export-body p { margin: 0; }
+.export .opts { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; min-width: 0; }
+.export .opts legend { font-size: 12px; font-weight: 600; color: var(--muted); padding: 0; margin-bottom: 4px; }
+.export .row { display: flex; flex-wrap: wrap; gap: 8px; }
+#ex-status:empty { display: none; }
