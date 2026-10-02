@@ -17,8 +17,8 @@ See [docs/SPEC.md](docs/SPEC.md) for the full build spec.
 ## Status
 
 Milestone 1 (the pipeline CLI) is in place: song in, 16 trimmed and labeled slices plus `kit.json` out.
-The web app makes kits right in the browser (Quick split, no install) or hands the song to Sangisa on your
-computer (`sangisa serve`) for the full AI stem split.
+The web app makes kits and acapellas right in the browser, with the AI stem split (HT-Demucs) running on the
+device, or hands the song to Sangisa on your computer (`sangisa serve`).
 The exporters come next (see the build order in the spec).
 
 ## Make kits on your phone (no computer)
@@ -27,10 +27,22 @@ Open <https://esang-mao.github.io/Sangisa/>, choose a song, pick **Make it on: T
 tap **Make the kit on this device**. Everything runs inside the browser: the song is never uploaded. A 3-minute song
 takes well under a minute on a laptop and a minute or two on a recent phone. Keep the page open while it works.
 
-On-device kits currently use a **Quick split** (harmonic/percussive separation, no AI model) into drums, bass and
-everything else. There's no vocal stem yet, and kicks can sound thin because their low end lands in the bass stem.
-Running the full AI stem split on the phone is the next step. Songs can be up to 7 minutes on a device, and the kit
-isn't saved there yet, so use **Export for Koala** to keep it.
+On a device you choose the **stem split**:
+
+- **AI (HT-Demucs)**: the same 4-stem model as on the computer (drums, bass, vocals, other), run in the browser with
+  [ONNX Runtime Web](https://onnxruntime.ai/docs/tutorials/web/). It uses the GPU through WebGPU where the browser
+  allows it (Safari on recent iPhones, Chrome), otherwise the CPU, which is several times slower. The model (about
+  50 MB) downloads the first time and is then kept on the device.
+- **Quick**: harmonic/percussive separation, no model, a few seconds. No vocal stem, and kicks can sound thin
+  because their low end lands in the bass stem.
+
+**Acapella + instrumental** also works on a device with the AI split (24-bit WAV; the vocals come from HT-Demucs,
+not the dedicated vocal model the computer uses). Songs can be up to 7 minutes on a device, and results aren't saved
+there yet: use **Export for Koala** for a kit, or download the acapella and instrumental.
+
+The AI option appears once the model has been published: run **Actions → Export AI model → Run workflow** once. It
+exports HT-Demucs to ONNX (`scripts/export_demucs_onnx.py`), checks it against PyTorch, and attaches it to the
+`models-v1` release; the Pages workflow then bundles it with the site.
 
 The in-browser engine (`site/engine/`) is a JavaScript port of the Python pipeline. Its tests check it against
 librosa and the Python pipeline on the same song: filterbanks, MFCC, onsets, tempo, beats, key and the finished kit.
@@ -59,8 +71,7 @@ job/split/<Song> - Instrumental - 92bpm Fmin.wav
 
 Tick **HQ vocals** (or pass `--hq-vocals`) to take a kit's vocal stem from the vocal model. Drums, bass and other
 then come from the 4-stem model run on the instrumental. Vocal chops come out cleaner, and separation takes about
-twice as long. Both features need the AI models, so for now they run with Sangisa on your computer. They come to the
-phone with the on-device model.
+twice as long. HQ vocals needs the vocal model, so it runs with Sangisa on your computer.
 
 ## Export to Koala Sampler (or any sampler / DAW)
 
@@ -103,8 +114,7 @@ Songs are processed by Sangisa running on your own computer, so they never leave
    prints. Other devices need the access key in that link; other websites can't use the server.
 
 Stem separation takes about 1–3 minutes per song on an Apple Silicon Mac or NVIDIA GPU, 10–15 minutes on a CPU.
-Kits are kept in `~/.sangisa/jobs` (change it with `--jobs-dir`). Making kits on a phone without a computer isn't
-supported yet.
+Kits are kept in `~/.sangisa/jobs` (change it with `--jobs-dir`).
 
 ## Kit viewer on GitHub Pages
 
@@ -116,7 +126,8 @@ a direct link to an audio file. Download the **sangisa-kit** artifact and drop t
 public, so the song link shows in the run log and any signed-in GitHub user can download the artifact until it expires
 after a day. Only use audio you own or have permission to sample.
 
-On every push to `main`, the `Pages` workflow builds the demo kit and publishes `site/` to the `gh-pages` branch.
+On every push to `main`, the `Pages` workflow builds the demo kit, bundles ONNX Runtime Web and the AI model (from
+the `models-v1` release, if it exists) and publishes `site/` to the `gh-pages` branch.
 One-time setup: **Settings → Pages → Build and deployment → Source: Deploy from a branch**, then pick `gh-pages` and
 `/ (root)`.
 
@@ -192,7 +203,8 @@ backend/sangisa/
   exporters/           Milestones 2-4
 site/                  the web app (published to GitHub Pages)
 site/engine/           the pipeline in JavaScript, run in a Web Worker for on-device kits; export.js
-                       writes the numbered-WAV (Koala) export
+                       writes the numbered-WAV (Koala) export; demucs.js runs HT-Demucs with ONNX Runtime
+scripts/export_demucs_onnx.py  exports HT-Demucs to ONNX for the browser (Export AI model workflow)
 scripts/build_demo.py  builds the viewer's demo kit
 tests/                 pytest, on a generated 16-bar song (no copyrighted audio)
 ```
@@ -201,6 +213,7 @@ tests/                 pytest, on a generated 16-bar song (no copyrighted audio)
 
 ```sh
 uv sync
+npm ci && npm run vendor   # ONNX Runtime Web, for the AI model tests and serving site/ locally
 uv run pytest
 uv run ruff check backend tests
 ```

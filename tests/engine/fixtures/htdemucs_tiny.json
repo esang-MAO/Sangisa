@@ -1,0 +1,25 @@
+{
+  "name": "htdemucs_tiny",
+  "graph": "htdemucs_tiny.onnx",
+  "external_data_path": "htdemucs_tiny.onnx.data",
+  "weights": "htdemucs_tiny.weights.f16",
+  "weights_format": "f16",
+  "sources": [
+    "drums",
+    "bass",
+    "other",
+    "vocals"
+  ],
+  "samplerate": 44100,
+  "audio_channels": 2,
+  "segment_samples": 44100,
+  "nfft": 4096,
+  "hop": 1024,
+  "frames": 44,
+  "weights_mb": 0.7,
+  "reference": {
+    "samples": 105840,
+    "channels": 2,
+    "sources": 4
+  }
+}

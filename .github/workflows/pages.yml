@@ -1,6 +1,9 @@
 # Publishes the kit viewer (site/) to GitHub Pages, with a demo kit built by the
 # real pipeline from the synthetic test song.
 #
+# The AI model (if the Export AI model workflow has published it) and ONNX Runtime Web are
+# bundled into the site here; neither is kept in the repository.
+#
 # The built site is force-pushed to the `gh-pages` branch (a single commit, so
 # old demo audio doesn't pile up in history).
 # One-time setup: Settings -> Pages -> Build and deployment ->
@@ -11,6 +14,9 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  workflow_run:  # republish once a new AI model has been exported
+    workflows: [Export AI model]
+    types: [completed]
 
 permissions:
   contents: write
@@ -26,6 +32,22 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --locked
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Bundle ONNX Runtime Web (runs the AI model in the browser)
+        run: npm ci && npm run vendor
+      - name: Bundle the AI model (from the Export AI model workflow's release)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p site/models/htdemucs
+          if gh release download models-v1 -R "$GITHUB_REPOSITORY" -p 'htdemucs.*' -D site/models/htdemucs --clobber; then
+            ls -la site/models/htdemucs
+          else
+            echo "::notice::No AI model release yet: the site offers the Quick split only. Run the Export AI model workflow to add it."
+            rm -rf site/models/htdemucs
+          fi
       - name: Build the demo kit
         run: uv run python scripts/build_demo.py site/demo
       - name: Publish to the gh-pages branch

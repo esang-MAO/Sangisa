@@ -45,3 +45,16 @@ def test_engine_config_matches_python_defaults():
     from sangisa.config import default_config
 
     assert json.loads((ROOT / "site/engine/config.json").read_text()) == default_config()
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js isn't installed")
+@pytest.mark.skipif(not (ROOT / "node_modules/onnxruntime-web").is_dir(), reason="run `npm ci` first")
+def test_demucs_js_matches_pytorch():
+    """The in-browser HT-Demucs (site/engine/demucs.js) against demucs' own apply_model,
+    on a small random-weight model with the same structure (tests/engine/fixtures)."""
+    result = subprocess.run(
+        ["node", "--test", "--test-reporter=spec", str(ROOT / "tests/engine/demucs.test.mjs")],
+        capture_output=True, text=True, timeout=600,
+    )
+    print(result.stdout[-4000:], result.stderr[-2000:])
+    assert result.returncode == 0, "HT-Demucs tests failed (output above)"

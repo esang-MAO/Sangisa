@@ -18,5 +18,6 @@ jobs:
           node-version: 22
       - run: sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
       - run: uv sync --locked
+      - run: npm ci  # ONNX Runtime, for the AI model's parity tests
       - run: uv run ruff check backend tests scripts
       - run: uv run pytest -q
