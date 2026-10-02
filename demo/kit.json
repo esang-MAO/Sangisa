@@ -1,0 +1,1434 @@
+{
+  "schema_version": 1,
+  "kit_name": "Sangisa Demo Kit",
+  "source": {
+    "path": "input/Sangisa Demo.wav",
+    "sha256": "d044c098cf58703775383123d6e3400e60ee7d476652f6ae0417d6c8bbf7dd50",
+    "duration_s": 32.0,
+    "sample_rate": 44100,
+    "rights_confirmed": true
+  },
+  "analysis": {
+    "bpm": 120.01,
+    "key": "F minor",
+    "key_short": "Fmin",
+    "key_confidence": 0.425,
+    "time_signature": "4/4",
+    "beats_s": [
+      0.5224,
+      1.0217,
+      1.5209,
+      2.0201,
+      2.5194,
+      3.0186,
+      3.5178,
+      4.0171,
+      4.5163,
+      5.0155,
+      5.5147,
+      6.014,
+      6.5132,
+      7.0124,
+      7.5117,
+      8.0225,
+      8.5217,
+      9.021,
+      9.5202,
+      10.0194,
+      10.5186,
+      11.0179,
+      11.5171,
+      12.0163,
+      12.5156,
+      13.0148,
+      13.514,
+      14.0132,
+      14.5125,
+      15.0117,
+      15.5109,
+      16.0218,
+      16.521,
+      17.0202,
+      17.5195,
+      18.0187,
+      18.5179,
+      19.0171,
+      19.5164,
+      20.0156,
+      20.5148,
+      21.0141,
+      21.5133,
+      22.0125,
+      22.5117,
+      23.011,
+      23.5218,
+      24.021,
+      24.5203,
+      25.0195,
+      25.5187,
+      26.018,
+      26.5172,
+      27.0164,
+      27.5156,
+      28.0149,
+      28.5141,
+      29.0133,
+      29.5126,
+      30.0118,
+      30.511,
+      31.0219,
+      31.5211
+    ],
+    "downbeats_s": [
+      2.0201,
+      4.0171,
+      6.014,
+      8.0225,
+      10.0194,
+      12.0163,
+      14.0132,
+      16.0218,
+      18.0187,
+      20.0156,
+      22.0125,
+      24.021,
+      26.018,
+      28.0149,
+      30.0118
+    ],
+    "sections": [
+      {
+        "label": "A",
+        "start_s": 0.0,
+        "end_s": 3.019
+      },
+      {
+        "label": "B",
+        "start_s": 3.019,
+        "end_s": 32.0
+      }
+    ]
+  },
+  "separation": {
+    "backend": "demo",
+    "model": "demo (pre-split stems)",
+    "vocal_model": null,
+    "device": "cpu",
+    "stems": {
+      "bass": "stems/bass.wav",
+      "drums": "stems/drums.wav",
+      "other": "stems/other.wav",
+      "vocals": "stems/vocals.wav"
+    }
+  },
+  "layout": {
+    "pad_count": 16,
+    "pad_split": {
+      "drums": 6,
+      "vocals": 4,
+      "bass": 3,
+      "other": 3
+    },
+    "origin": "bottom_left"
+  },
+  "pads": [
+    {
+      "pad": 1,
+      "bank": "A",
+      "midi_note": 36,
+      "slice_id": "drums-0010"
+    },
+    {
+      "pad": 2,
+      "bank": "A",
+      "midi_note": 37,
+      "slice_id": "drums-0032"
+    },
+    {
+      "pad": 3,
+      "bank": "A",
+      "midi_note": 38,
+      "slice_id": "drums-0095"
+    },
+    {
+      "pad": 4,
+      "bank": "A",
+      "midi_note": 39,
+      "slice_id": "drums-0035"
+    },
+    {
+      "pad": 5,
+      "bank": "A",
+      "midi_note": 40,
+      "slice_id": "drums-0029"
+    },
+    {
+      "pad": 6,
+      "bank": "A",
+      "midi_note": 41,
+      "slice_id": "drums-0012"
+    },
+    {
+      "pad": 7,
+      "bank": "A",
+      "midi_note": 42,
+      "slice_id": "vocals-0104"
+    },
+    {
+      "pad": 8,
+      "bank": "A",
+      "midi_note": 43,
+      "slice_id": "vocals-0000"
+    },
+    {
+      "pad": 9,
+      "bank": "A",
+      "midi_note": 44,
+      "slice_id": "vocals-0078"
+    },
+    {
+      "pad": 10,
+      "bank": "A",
+      "midi_note": 45,
+      "slice_id": "vocals-0101"
+    },
+    {
+      "pad": 11,
+      "bank": "A",
+      "midi_note": 46,
+      "slice_id": "bass-0060"
+    },
+    {
+      "pad": 12,
+      "bank": "A",
+      "midi_note": 47,
+      "slice_id": "bass-0065"
+    },
+    {
+      "pad": 13,
+      "bank": "A",
+      "midi_note": 48,
+      "slice_id": "bass-0026"
+    },
+    {
+      "pad": 14,
+      "bank": "A",
+      "midi_note": 49,
+      "slice_id": "other-0015"
+    },
+    {
+      "pad": 15,
+      "bank": "A",
+      "midi_note": 50,
+      "slice_id": "other-0041"
+    },
+    {
+      "pad": 16,
+      "bank": "A",
+      "midi_note": 51,
+      "slice_id": "other-0014"
+    }
+  ],
+  "slices": [
+    {
+      "id": "drums-0010",
+      "stem": "drums",
+      "kind": "one_shot",
+      "category": "kick",
+      "label": "Kick 1",
+      "file": "slices/Drums_Kick_1_120bpm_Fmin.wav",
+      "source_start_s": 2.9954,
+      "source_end_s": 3.2508,
+      "bars": null,
+      "beats": null,
+      "note": null,
+      "section": "A",
+      "score": 0.6929,
+      "score_parts": {
+        "isolation": 0.3667,
+        "clarity": 0.7214,
+        "loudness": 1.0,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 41,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "drums-0032",
+      "stem": "drums",
+      "kind": "one_shot",
+      "category": "snare",
+      "label": "Snare 1",
+      "file": "slices/Drums_Snare_1_120bpm_Fmin.wav",
+      "source_start_s": 7.5,
+      "source_end_s": 7.709,
+      "bars": null,
+      "beats": null,
+      "note": null,
+      "section": "B",
+      "score": 0.5541,
+      "score_parts": {
+        "isolation": 0.0228,
+        "clarity": 0.9849,
+        "loudness": 0.5964,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 23,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "drums-0095",
+      "stem": "drums",
+      "kind": "one_shot",
+      "category": "hat",
+      "label": "Hat 1",
+      "file": "slices/Drums_Hat_1_120bpm_Fmin.wav",
+      "source_start_s": 21.7455,
+      "source_end_s": 22.0009,
+      "bars": null,
+      "beats": null,
+      "note": null,
+      "section": "B",
+      "score": 0.4613,
+      "score_parts": {
+        "isolation": 0.0045,
+        "clarity": 0.8,
+        "loudness": 0.3844,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 77,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "drums-0035",
+      "stem": "drums",
+      "kind": "loop",
+      "category": "drum_loop",
+      "label": "Drum loop A (2 bar)",
+      "file": "slices/Drums_Loop_A_2bar_120bpm_Fmin.wav",
+      "source_start_s": 8.0225,
+      "source_end_s": 12.0222,
+      "bars": 2.0,
+      "beats": 8.0,
+      "note": null,
+      "section": "B",
+      "score": 0.6042,
+      "score_parts": {
+        "isolation": 0.1125,
+        "clarity": 0.5079,
+        "loudness": 0.8467,
+        "loopability": 0.9595,
+        "uniqueness": 1.0
+      },
+      "cluster": 72,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 2.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "loop"
+      }
+    },
+    {
+      "id": "drums-0029",
+      "stem": "drums",
+      "kind": "one_shot",
+      "category": "kick",
+      "label": "Kick 2",
+      "file": "slices/Drums_Kick_2_120bpm_Fmin.wav",
+      "source_start_s": 7.0008,
+      "source_end_s": 7.2446,
+      "bars": null,
+      "beats": null,
+      "note": null,
+      "section": "B",
+      "score": 0.6923,
+      "score_parts": {
+        "isolation": 0.3715,
+        "clarity": 0.712,
+        "loudness": 1.0,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 42,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "drums-0012",
+      "stem": "drums",
+      "kind": "one_shot",
+      "category": "snare",
+      "label": "Snare 2",
+      "file": "slices/Drums_Snare_2_120bpm_Fmin.wav",
+      "source_start_s": 3.4946,
+      "source_end_s": 3.75,
+      "bars": null,
+      "beats": null,
+      "note": null,
+      "section": "B",
+      "score": 0.5515,
+      "score_parts": {
+        "isolation": 0.0193,
+        "clarity": 0.9998,
+        "loudness": 0.5695,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 24,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "vocals-0104",
+      "stem": "vocals",
+      "kind": "chop",
+      "category": "vox_chop",
+      "label": "Vox chop 1 F5",
+      "file": "slices/Vocals_Chop_1_F5_120bpm_Fmin.wav",
+      "source_start_s": 28.5141,
+      "source_end_s": 29.0141,
+      "bars": null,
+      "beats": 1.0,
+      "note": "F5",
+      "section": "B",
+      "score": 0.7071,
+      "score_parts": {
+        "isolation": 0.2451,
+        "clarity": 1.0,
+        "loudness": 0.9476,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 99,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "vocals-0000",
+      "stem": "vocals",
+      "kind": "phrase",
+      "category": "vox_phrase",
+      "label": "Vox phrase 1",
+      "file": "slices/Vocals_Phrase_1_120bpm_Fmin.wav",
+      "source_start_s": 0.0,
+      "source_end_s": 3.0186,
+      "bars": null,
+      "beats": null,
+      "note": null,
+      "section": "A",
+      "score": 0.6994,
+      "score_parts": {
+        "isolation": 0.2286,
+        "clarity": 0.9904,
+        "loudness": 0.9525,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 97,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "vocals-0078",
+      "stem": "vocals",
+      "kind": "chop",
+      "category": "vox_chop",
+      "label": "Vox chop 2 Ab4",
+      "file": "slices/Vocals_Chop_2_Ab4_120bpm_Fmin.wav",
+      "source_start_s": 21.5133,
+      "source_end_s": 22.0133,
+      "bars": null,
+      "beats": 1.0,
+      "note": "Ab4",
+      "section": "B",
+      "score": 0.7067,
+      "score_parts": {
+        "isolation": 0.2439,
+        "clarity": 1.0,
+        "loudness": 0.9477,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 100,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "vocals-0101",
+      "stem": "vocals",
+      "kind": "phrase",
+      "category": "vox_phrase",
+      "label": "Vox phrase 2",
+      "file": "slices/Vocals_Phrase_2_120bpm_Fmin.wav",
+      "source_start_s": 27.98,
+      "source_end_s": 31.0219,
+      "bars": null,
+      "beats": null,
+      "note": null,
+      "section": "B",
+      "score": 0.6977,
+      "score_parts": {
+        "isolation": 0.2283,
+        "clarity": 0.9847,
+        "loudness": 0.9515,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 98,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "bass-0060",
+      "stem": "bass",
+      "kind": "loop",
+      "category": "bass_loop",
+      "label": "Bass loop A (1 bar)",
+      "file": "slices/Bass_Loop_A_1bar_120bpm_Fmin.wav",
+      "source_start_s": 18.0187,
+      "source_end_s": 20.0185,
+      "bars": 1.0,
+      "beats": 4.0,
+      "note": null,
+      "section": "B",
+      "score": 0.867,
+      "score_parts": {
+        "isolation": 0.7124,
+        "clarity": 0.9996,
+        "loudness": 1.0,
+        "loopability": 0.7668,
+        "uniqueness": 1.0
+      },
+      "cluster": 14,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 2.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "loop"
+      }
+    },
+    {
+      "id": "bass-0065",
+      "stem": "bass",
+      "kind": "one_shot",
+      "category": "bass_note",
+      "label": "Bass note 1 Ab2",
+      "file": "slices/Bass_Note_1_Ab2_120bpm_Fmin.wav",
+      "source_start_s": 19.4932,
+      "source_end_s": 19.9459,
+      "bars": null,
+      "beats": null,
+      "note": "Ab2",
+      "section": "B",
+      "score": 0.7469,
+      "score_parts": {
+        "isolation": 0.9751,
+        "clarity": 0.0251,
+        "loudness": 1.0,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 0,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "bass-0026",
+      "stem": "bass",
+      "kind": "loop",
+      "category": "bass_loop",
+      "label": "Bass loop B (2 bar)",
+      "file": "slices/Bass_Loop_B_2bar_120bpm_Fmin.wav",
+      "source_start_s": 8.0225,
+      "source_end_s": 12.0222,
+      "bars": 2.0,
+      "beats": 8.0,
+      "note": null,
+      "section": "B",
+      "score": 0.8595,
+      "score_parts": {
+        "isolation": 0.6684,
+        "clarity": 0.9986,
+        "loudness": 1.0,
+        "loopability": 0.7961,
+        "uniqueness": 1.0
+      },
+      "cluster": 15,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 2.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "loop"
+      }
+    },
+    {
+      "id": "other-0015",
+      "stem": "other",
+      "kind": "loop",
+      "category": "other_loop",
+      "label": "Other loop A (4 bar)",
+      "file": "slices/Other_Loop_A_4bar_120bpm_Fmin.wav",
+      "source_start_s": 8.0225,
+      "source_end_s": 16.0218,
+      "bars": 4.0,
+      "beats": 16.0,
+      "note": null,
+      "section": "B",
+      "score": 0.5233,
+      "score_parts": {
+        "isolation": 0.0344,
+        "clarity": 0.4707,
+        "loudness": 0.6857,
+        "loopability": 0.8298,
+        "uniqueness": 1.0
+      },
+      "cluster": 92,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 2.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "loop"
+      }
+    },
+    {
+      "id": "other-0041",
+      "stem": "other",
+      "kind": "one_shot",
+      "category": "stab",
+      "label": "Other stab 1 Cmin",
+      "file": "slices/Other_Stab_1_Cmin_120bpm_Fmin.wav",
+      "source_start_s": 22.0009,
+      "source_end_s": 23.2083,
+      "bars": null,
+      "beats": null,
+      "note": "Cmin",
+      "section": "B",
+      "score": 0.5758,
+      "score_parts": {
+        "isolation": 0.0359,
+        "clarity": 0.9707,
+        "loudness": 0.705,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 81,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "other-0014",
+      "stem": "other",
+      "kind": "loop",
+      "category": "other_loop",
+      "label": "Other loop B (2 bar)",
+      "file": "slices/Other_Loop_B_2bar_120bpm_Fmin.wav",
+      "source_start_s": 8.0225,
+      "source_end_s": 12.0222,
+      "bars": 2.0,
+      "beats": 8.0,
+      "note": null,
+      "section": "B",
+      "score": 0.5194,
+      "score_parts": {
+        "isolation": 0.034,
+        "clarity": 0.4678,
+        "loudness": 0.6842,
+        "loopability": 0.8151,
+        "uniqueness": 1.0
+      },
+      "cluster": 93,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 2.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "loop"
+      }
+    },
+    {
+      "id": "bass-0027",
+      "stem": "bass",
+      "kind": "loop",
+      "category": "bass_loop",
+      "label": "Bass loop C (4 bar)",
+      "file": "slices/Bass_Loop_C_4bar_120bpm_Fmin.wav",
+      "source_start_s": 8.0225,
+      "source_end_s": 16.0218,
+      "bars": 4.0,
+      "beats": 16.0,
+      "note": null,
+      "section": "B",
+      "score": 0.8571,
+      "score_parts": {
+        "isolation": 0.6679,
+        "clarity": 0.9977,
+        "loudness": 1.0,
+        "loopability": 0.7857,
+        "uniqueness": 1.0
+      },
+      "cluster": 16,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 2.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "loop"
+      }
+    },
+    {
+      "id": "bass-0018",
+      "stem": "bass",
+      "kind": "loop",
+      "category": "bass_loop",
+      "label": "Bass loop D (1 bar)",
+      "file": "slices/Bass_Loop_D_1bar_120bpm_Fmin.wav",
+      "source_start_s": 6.014,
+      "source_end_s": 8.0138,
+      "bars": 1.0,
+      "beats": 4.0,
+      "note": null,
+      "section": "B",
+      "score": 0.8556,
+      "score_parts": {
+        "isolation": 0.7104,
+        "clarity": 0.9994,
+        "loudness": 1.0,
+        "loopability": 0.713,
+        "uniqueness": 1.0
+      },
+      "cluster": 17,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 2.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "loop"
+      }
+    },
+    {
+      "id": "bass-0061",
+      "stem": "bass",
+      "kind": "loop",
+      "category": "bass_loop",
+      "label": "Bass loop E (2 bar)",
+      "file": "slices/Bass_Loop_E_2bar_120bpm_Fmin.wav",
+      "source_start_s": 18.0187,
+      "source_end_s": 22.0184,
+      "bars": 2.0,
+      "beats": 8.0,
+      "note": null,
+      "section": "B",
+      "score": 0.8508,
+      "score_parts": {
+        "isolation": 0.6685,
+        "clarity": 0.9986,
+        "loudness": 1.0,
+        "loopability": 0.7527,
+        "uniqueness": 1.0
+      },
+      "cluster": 18,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 2.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "loop"
+      }
+    },
+    {
+      "id": "bass-0025",
+      "stem": "bass",
+      "kind": "loop",
+      "category": "bass_loop",
+      "label": "Bass loop F (1 bar)",
+      "file": "slices/Bass_Loop_F_1bar_120bpm_Fmin.wav",
+      "source_start_s": 8.0225,
+      "source_end_s": 10.0223,
+      "bars": 1.0,
+      "beats": 4.0,
+      "note": null,
+      "section": "B",
+      "score": 0.8495,
+      "score_parts": {
+        "isolation": 0.6295,
+        "clarity": 0.9997,
+        "loudness": 1.0,
+        "loopability": 0.8035,
+        "uniqueness": 1.0
+      },
+      "cluster": 19,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 2.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "loop"
+      }
+    },
+    {
+      "id": "bass-0068",
+      "stem": "bass",
+      "kind": "loop",
+      "category": "bass_loop",
+      "label": "Bass loop G (2 bar)",
+      "file": "slices/Bass_Loop_G_2bar_120bpm_Fmin.wav",
+      "source_start_s": 20.0156,
+      "source_end_s": 24.0153,
+      "bars": 2.0,
+      "beats": 8.0,
+      "note": null,
+      "section": "B",
+      "score": 0.8475,
+      "score_parts": {
+        "isolation": 0.6675,
+        "clarity": 0.9979,
+        "loudness": 1.0,
+        "loopability": 0.7382,
+        "uniqueness": 1.0
+      },
+      "cluster": 20,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 2.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "loop"
+      }
+    },
+    {
+      "id": "bass-0019",
+      "stem": "bass",
+      "kind": "loop",
+      "category": "bass_loop",
+      "label": "Bass loop H (2 bar)",
+      "file": "slices/Bass_Loop_H_2bar_120bpm_Fmin.wav",
+      "source_start_s": 6.014,
+      "source_end_s": 10.0137,
+      "bars": 2.0,
+      "beats": 8.0,
+      "note": null,
+      "section": "B",
+      "score": 0.8418,
+      "score_parts": {
+        "isolation": 0.6674,
+        "clarity": 0.9973,
+        "loudness": 1.0,
+        "loopability": 0.7105,
+        "uniqueness": 1.0
+      },
+      "cluster": 21,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 2.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "loop"
+      }
+    },
+    {
+      "id": "drums-0046",
+      "stem": "drums",
+      "kind": "one_shot",
+      "category": "kick",
+      "label": "Kick 3",
+      "file": "slices/Drums_Kick_3_120bpm_Fmin.wav",
+      "source_start_s": 10.9946,
+      "source_end_s": 11.2501,
+      "bars": null,
+      "beats": null,
+      "note": null,
+      "section": "B",
+      "score": 0.6896,
+      "score_parts": {
+        "isolation": 0.3667,
+        "clarity": 0.7084,
+        "loudness": 1.0,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 43,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "drums-0066",
+      "stem": "drums",
+      "kind": "one_shot",
+      "category": "kick",
+      "label": "Kick 4",
+      "file": "slices/Drums_Kick_4_120bpm_Fmin.wav",
+      "source_start_s": 15.0001,
+      "source_end_s": 15.2439,
+      "bars": null,
+      "beats": null,
+      "note": null,
+      "section": "B",
+      "score": 0.6877,
+      "score_parts": {
+        "isolation": 0.3728,
+        "clarity": 0.6916,
+        "loudness": 1.0,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 44,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "drums-0082",
+      "stem": "drums",
+      "kind": "one_shot",
+      "category": "kick",
+      "label": "Kick 5",
+      "file": "slices/Drums_Kick_5_120bpm_Fmin.wav",
+      "source_start_s": 18.9939,
+      "source_end_s": 19.2493,
+      "bars": null,
+      "beats": null,
+      "note": null,
+      "section": "B",
+      "score": 0.6854,
+      "score_parts": {
+        "isolation": 0.3675,
+        "clarity": 0.6903,
+        "loudness": 1.0,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 45,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "drums-0102",
+      "stem": "drums",
+      "kind": "one_shot",
+      "category": "kick",
+      "label": "Kick 6",
+      "file": "slices/Drums_Kick_6_120bpm_Fmin.wav",
+      "source_start_s": 22.9994,
+      "source_end_s": 23.2432,
+      "bars": null,
+      "beats": null,
+      "note": null,
+      "section": "B",
+      "score": 0.6847,
+      "score_parts": {
+        "isolation": 0.3733,
+        "clarity": 0.679,
+        "loudness": 1.0,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 46,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "drums-0110",
+      "stem": "drums",
+      "kind": "one_shot",
+      "category": "kick",
+      "label": "Kick 7",
+      "file": "slices/Drums_Kick_7_120bpm_Fmin.wav",
+      "source_start_s": 24.9963,
+      "source_end_s": 25.2517,
+      "bars": null,
+      "beats": null,
+      "note": null,
+      "section": "B",
+      "score": 0.6666,
+      "score_parts": {
+        "isolation": 0.3036,
+        "clarity": 0.7111,
+        "loudness": 1.0,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 47,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "drums-0127",
+      "stem": "drums",
+      "kind": "one_shot",
+      "category": "kick",
+      "label": "Kick 8",
+      "file": "slices/Drums_Kick_8_120bpm_Fmin.wav",
+      "source_start_s": 28.9901,
+      "source_end_s": 29.2455,
+      "bars": null,
+      "beats": null,
+      "note": null,
+      "section": "B",
+      "score": 0.6657,
+      "score_parts": {
+        "isolation": 0.308,
+        "clarity": 0.7008,
+        "loudness": 1.0,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 48,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "other-0001",
+      "stem": "other",
+      "kind": "one_shot",
+      "category": "stab",
+      "label": "Other stab 2 Dbmaj",
+      "file": "slices/Other_Stab_2_Dbmaj_120bpm_Fmin.wav",
+      "source_start_s": 1.9969,
+      "source_end_s": 3.2508,
+      "bars": null,
+      "beats": null,
+      "note": "Dbmaj",
+      "section": "A",
+      "score": 0.5751,
+      "score_parts": {
+        "isolation": 0.0341,
+        "clarity": 0.9771,
+        "loudness": 0.6964,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 82,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "other-0033",
+      "stem": "other",
+      "kind": "one_shot",
+      "category": "stab",
+      "label": "Other stab 3 Dbmaj",
+      "file": "slices/Other_Stab_3_Dbmaj_120bpm_Fmin.wav",
+      "source_start_s": 17.9955,
+      "source_end_s": 19.2087,
+      "bars": null,
+      "beats": null,
+      "note": "Dbmaj",
+      "section": "B",
+      "score": 0.5741,
+      "score_parts": {
+        "isolation": 0.0349,
+        "clarity": 0.9684,
+        "loudness": 0.7009,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 83,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "other-0045",
+      "stem": "other",
+      "kind": "one_shot",
+      "category": "stab",
+      "label": "Other stab 4 Fmin",
+      "file": "slices/Other_Stab_4_Fmin_120bpm_Fmin.wav",
+      "source_start_s": 23.9978,
+      "source_end_s": 25.2517,
+      "bars": null,
+      "beats": null,
+      "note": "Fmin",
+      "section": "B",
+      "score": 0.5738,
+      "score_parts": {
+        "isolation": 0.0318,
+        "clarity": 0.978,
+        "loudness": 0.6926,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 84,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "other-0051",
+      "stem": "other",
+      "kind": "one_shot",
+      "category": "stab",
+      "label": "Other stab 5 Ebmaj",
+      "file": "slices/Other_Stab_5_Ebmaj_120bpm_Fmin.wav",
+      "source_start_s": 27.9917,
+      "source_end_s": 29.2107,
+      "bars": null,
+      "beats": null,
+      "note": "Ebmaj",
+      "section": "B",
+      "score": 0.5731,
+      "score_parts": {
+        "isolation": 0.0332,
+        "clarity": 0.9685,
+        "loudness": 0.6987,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 85,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "other-0013",
+      "stem": "other",
+      "kind": "one_shot",
+      "category": "stab",
+      "label": "Other stab 6 Fmin",
+      "file": "slices/Other_Stab_6_Fmin_120bpm_Fmin.wav",
+      "source_start_s": 7.9877,
+      "source_end_s": 9.2067,
+      "bars": null,
+      "beats": null,
+      "note": "Fmin",
+      "section": "B",
+      "score": 0.5723,
+      "score_parts": {
+        "isolation": 0.0329,
+        "clarity": 0.9674,
+        "loudness": 0.6964,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 86,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "other-0012",
+      "stem": "other",
+      "kind": "one_shot",
+      "category": "stab",
+      "label": "Other stab 7 Cmin",
+      "file": "slices/Other_Stab_7_Cmin_120bpm_Fmin.wav",
+      "source_start_s": 7.2446,
+      "source_end_s": 7.9877,
+      "bars": null,
+      "beats": null,
+      "note": "Cmin",
+      "section": "B",
+      "score": 0.5418,
+      "score_parts": {
+        "isolation": 0.0436,
+        "clarity": 0.8511,
+        "loudness": 0.6674,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 87,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "vocals-0003",
+      "stem": "vocals",
+      "kind": "chop",
+      "category": "vox_chop",
+      "label": "Vox chop 3 Eb5",
+      "file": "slices/Vocals_Chop_3_Eb5_120bpm_Fmin.wav",
+      "source_start_s": 1.0217,
+      "source_end_s": 1.5217,
+      "bars": null,
+      "beats": 1.0,
+      "note": "Eb5",
+      "section": "A",
+      "score": 0.7048,
+      "score_parts": {
+        "isolation": 0.2327,
+        "clarity": 1.0,
+        "loudness": 0.9602,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 101,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "vocals-0031",
+      "stem": "vocals",
+      "kind": "chop",
+      "category": "vox_chop",
+      "label": "Vox chop 4 Eb5",
+      "file": "slices/Vocals_Chop_4_Eb5_120bpm_Fmin.wav",
+      "source_start_s": 9.021,
+      "source_end_s": 9.521,
+      "bars": null,
+      "beats": 1.0,
+      "note": "Eb5",
+      "section": "B",
+      "score": 0.7046,
+      "score_parts": {
+        "isolation": 0.2321,
+        "clarity": 1.0,
+        "loudness": 0.9602,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 102,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "vocals-0105",
+      "stem": "vocals",
+      "kind": "chop",
+      "category": "vox_chop",
+      "label": "Vox chop 5 Ab4",
+      "file": "slices/Vocals_Chop_5_Ab4_120bpm_Fmin.wav",
+      "source_start_s": 28.5141,
+      "source_end_s": 29.514,
+      "bars": null,
+      "beats": 2.0,
+      "note": "Ab4",
+      "section": "B",
+      "score": 0.7045,
+      "score_parts": {
+        "isolation": 0.2353,
+        "clarity": 1.0,
+        "loudness": 0.9533,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 103,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "vocals-0061",
+      "stem": "vocals",
+      "kind": "chop",
+      "category": "vox_chop",
+      "label": "Vox chop 6 Eb5",
+      "file": "slices/Vocals_Chop_6_Eb5_120bpm_Fmin.wav",
+      "source_start_s": 17.0202,
+      "source_end_s": 17.5202,
+      "bars": null,
+      "beats": 1.0,
+      "note": "Eb5",
+      "section": "B",
+      "score": 0.7043,
+      "score_parts": {
+        "isolation": 0.2314,
+        "clarity": 1.0,
+        "loudness": 0.96,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 105,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "vocals-0108",
+      "stem": "vocals",
+      "kind": "chop",
+      "category": "vox_chop",
+      "label": "Vox chop 7 Ab4",
+      "file": "slices/Vocals_Chop_7_Ab4_120bpm_Fmin.wav",
+      "source_start_s": 29.5126,
+      "source_end_s": 30.0126,
+      "bars": null,
+      "beats": 1.0,
+      "note": "Ab4",
+      "section": "B",
+      "score": 0.7043,
+      "score_parts": {
+        "isolation": 0.2454,
+        "clarity": 0.9882,
+        "loudness": 0.9479,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 104,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    },
+    {
+      "id": "vocals-0077",
+      "stem": "vocals",
+      "kind": "chop",
+      "category": "vox_chop",
+      "label": "Vox chop 8 Ab4",
+      "file": "slices/Vocals_Chop_8_Ab4_120bpm_Fmin.wav",
+      "source_start_s": 21.0141,
+      "source_end_s": 22.014,
+      "bars": null,
+      "beats": 2.0,
+      "note": "Ab4",
+      "section": "B",
+      "score": 0.7042,
+      "score_parts": {
+        "isolation": 0.2346,
+        "clarity": 1.0,
+        "loudness": 0.9534,
+        "loopability": null,
+        "uniqueness": 1.0
+      },
+      "cluster": 106,
+      "render": {
+        "fade_in_ms": 2.0,
+        "fade_out_ms": 5.0,
+        "normalize_dbfs": -1.0,
+        "reverse": false,
+        "playback": "one_shot"
+      }
+    }
+  ]
+}

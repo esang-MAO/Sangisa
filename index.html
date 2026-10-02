@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sangisa Kit Viewer</title>
+  <meta name="description" content="Audition and review a Sangisa sample kit in the browser.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect x='1' y='1' width='6' height='6' rx='1.5' fill='%23f28c38'/><rect x='9' y='1' width='6' height='6' rx='1.5' fill='%234f8ef7'/><rect x='1' y='9' width='6' height='6' rx='1.5' fill='%23e05aa8'/><rect x='9' y='9' width='6' height='6' rx='1.5' fill='%233fb67f'/></svg>">
+  <link rel="stylesheet" href="style.css">
+  <script src="vendor/jszip-3.10.1.min.js" defer></script>
+  <script src="app.js" defer></script>
+  <script src="make.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <div>
+        <h1>Sangisa</h1>
+        <p class="tagline">Take a song apart. Make it anew.</p>
+      </div>
+    </div>
+    <nav class="loaders">
+      <button id="load-demo" class="btn">Demo kit</button>
+      <label class="btn">Open kit .zip<input id="zip-input" type="file" accept=".zip,application/zip" hidden></label>
+      <label class="btn hide-phone">Open kit folder<input id="dir-input" type="file" webkitdirectory hidden></label>
+    </nav>
+  </header>
+
+  <main>
+    <section id="welcome" class="welcome">
+      <div class="card make">
+        <div class="make-head">
+          <h2 id="make-title">Make a kit</h2>
+          <span id="conn" class="conn" data-state="checking"><i></i><span id="conn-text">Looking for Sangisa…</span></span>
+        </div>
+
+        <div class="seg" role="radiogroup" aria-label="What to make">
+          <label><input type="radio" name="mode" value="kit" checked><span>Sample pack</span></label>
+          <label><input type="radio" name="mode" value="split"><span>Acapella + instrumental</span></label>
+        </div>
+
+        <label id="song-drop" class="drop song-drop">
+          <input id="song-input" type="file" accept="audio/*,.wav,.wave,.aif,.aiff,.flac,.mp3,.m4a" hidden>
+          <span class="drop-title" id="song-title">Drop a song here</span>
+          <span id="song-sub" class="meta">or tap to choose one · WAV, AIFF, FLAC, MP3, M4A · up to 10 minutes</span>
+        </label>
+
+        <fieldset class="where" id="where">
+          <legend>Make it on</legend>
+          <label class="choice"><input type="radio" name="where" value="device">
+            <span><b>This device</b><span class="meta">No install, no upload: the song never leaves this
+              phone or computer.</span></span></label>
+          <label class="choice"><input type="radio" name="where" value="computer">
+            <span><b>My computer</b><span class="meta">Full AI stem split, vocals included. Needs Sangisa running
+              on your computer.</span></span></label>
+        </fieldset>
+
+        <fieldset class="where" id="engine">
+          <legend>Stem split</legend>
+          <label class="choice" id="engine-ai"><input type="radio" name="engine" value="ai">
+            <span><b>AI (HT-Demucs)</b><span class="meta" id="engine-ai-meta">Drums, bass, vocals and the rest, cleanly
+              separated. Downloads the model once (about 50 MB).</span></span></label>
+          <label class="choice"><input type="radio" name="engine" value="quick">
+            <span><b>Quick</b><span class="meta">A few seconds: drums, bass and the rest. No vocal stem, and kicks
+              can sound thin.</span></span></label>
+        </fieldset>
+
+        <label class="rights" id="hq-row"><input type="checkbox" id="hq-vocals"> <span>HQ vocals: take the vocals from
+          the dedicated vocal model (BS-RoFormer). Cleaner vocal chops; separation takes about twice as long.</span></label>
+
+        <div id="split-opts" class="split-opts" hidden>
+          <div class="make-row" id="split-format-row">
+            <label class="field">Format
+              <select id="split-format">
+                <option value="wav">WAV, 24-bit</option>
+                <option value="flac">FLAC</option>
+                <option value="mp3">MP3, 320 kbps</option>
+              </select>
+            </label>
+          </div>
+          <label class="rights"><input type="checkbox" id="split-stems"> Also include drums, bass and other</label>
+          <label class="rights" id="split-normalize-row"><input type="checkbox" id="split-normalize"> <span>Normalize (louder, but the two
+            files no longer add back up to the original)</span></label>
+          <label class="rights" id="split-fast-row"><input type="checkbox" id="split-fast"> <span>Fast: vocals from the 4-stem model
+            instead of the vocal model (quicker, less clean)</span></label>
+        </div>
+
+        <div class="make-row" id="pads-row">
+          <label class="field">Pads
+            <select id="pad-split">
+              <option value="drums=6,vocals=4,bass=3,other=3">6 drums · 4 vocals · 3 bass · 3 other</option>
+              <option value="drums=8,vocals=4,bass=2,other=2">8 drums · 4 vocals · 2 bass · 2 other</option>
+              <option value="drums=4,vocals=8,bass=2,other=2">4 drums · 8 vocals · 2 bass · 2 other</option>
+              <option value="drums=4,vocals=4,bass=4,other=4">4 of each</option>
+            </select>
+          </label>
+        </div>
+        <label class="rights"><input type="checkbox" id="rights"> I own this audio or have the rights to sample it</label>
+        <button id="start" class="btn primary big" disabled>Make the kit</button>
+        <p id="make-hint" class="meta"></p>
+        <p id="crash-note" class="crash-note" hidden></p>
+
+        <details id="setup" class="setup">
+          <summary>How to start Sangisa on your computer (HQ vocals, FLAC/MP3, long songs)</summary>
+          <p>The song is processed by Sangisa running on your own computer, so it never leaves your devices.
+            On the computer, separation takes about 1–3 minutes on an Apple Silicon Mac or NVIDIA GPU,
+            10–15 minutes on other machines.</p>
+          <ol>
+            <li>Once: install <a href="https://docs.astral.sh/uv/getting-started/installation/" target="_blank"
+                rel="noopener">uv</a>, then in a terminal run
+              <pre><code>git clone https://github.com/esang-MAO/Sangisa
+cd Sangisa
+uv sync --extra separation</code></pre></li>
+            <li>Each time: in the <code>Sangisa</code> folder run <pre><code>uv run sangisa serve</code></pre>
+              and open <a href="http://localhost:8765/">http://localhost:8765</a> (this page works too in Chrome,
+              Edge and Firefox).</li>
+            <li>From a phone or tablet on the same Wi-Fi: start it with
+              <pre><code>uv run sangisa serve --lan</code></pre> and scan the code it prints with the phone's camera.</li>
+          </ol>
+          <p class="meta" id="phone-note" hidden>Making kits on the phone itself, without a computer, isn't available yet.</p>
+          <form id="server-form" class="server-form">
+            <label class="field">Sangisa address
+              <input id="server-url" type="url" placeholder="http://localhost:8765" autocomplete="off"></label>
+            <button class="btn small" type="submit">Connect</button>
+          </form>
+        </details>
+      </div>
+
+      <div class="side">
+        <div class="card">
+          <h3>Your kits</h3>
+          <ul id="recent" class="recent"><li class="meta">Kits you make show up here.</li></ul>
+        </div>
+        <div class="card drop kit-drop" id="drop">
+          <h3>Open a kit</h3>
+          <p class="meta">Drop a kit <code>.zip</code> here (from <code>sangisa</code> or the
+            <a id="action-link" href="#">Build a kit</a> GitHub Action), or try the <b>Demo kit</b>: built by the real
+            pipeline from a generated song.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="progress" class="card progress" hidden>
+      <h2 id="prog-title"></h2>
+      <p id="prog-sub" class="meta"></p>
+      <ol id="prog-stages" class="stages"></ol>
+      <p id="prog-note" class="meta"></p>
+      <div class="row">
+        <button id="prog-back" class="btn small">Back</button>
+      </div>
+    </section>
+
+    <section id="split" class="card split" hidden>
+      <div class="split-head">
+        <div>
+          <h2 id="split-title"></h2>
+          <p id="split-meta" class="meta"></p>
+        </div>
+        <button id="split-back" class="btn small">← Back</button>
+      </div>
+
+      <div class="player">
+        <button id="sp-play" class="btn primary play" aria-label="Play">▶</button>
+        <input id="sp-seek" type="range" min="0" max="1000" value="0" aria-label="Position">
+        <span id="sp-time" class="meta">0:00</span>
+      </div>
+      <div class="seg" role="radiogroup" aria-label="Listen to">
+        <label><input type="radio" name="sp-src" value="acapella" checked><span>Acapella</span></label>
+        <label><input type="radio" name="sp-src" value="instrumental"><span>Instrumental</span></label>
+        <label><input type="radio" name="sp-src" value="original"><span>Original</span></label>
+      </div>
+      <p class="meta">Switch while it plays to compare (A/B); it carries on from the same spot.</p>
+
+      <h3>Download</h3>
+      <div id="split-files" class="row"></div>
+
+      <div class="kit-from">
+        <button id="split-kit" class="btn primary">Make a kit from this</button>
+        <span class="meta">Reuses this acapella; only the instrumental is split into drums, bass and other.</span>
+      </div>
+      <div id="split-audio" hidden></div>
+    </section>
+
+    <section id="kit" class="kit" hidden>
+      <div class="kit-head">
+        <div>
+          <h2 id="kit-name"></h2>
+          <p id="kit-meta" class="meta"></p>
+        </div>
+        <div class="kit-actions">
+          <button id="back-home" class="btn small">← Kits</button>
+          <div id="banks" class="banks" role="tablist"></div>
+          <button id="stop-all" class="btn small">Stop all</button>
+          <button id="open-export" class="btn small primary">Export for Koala</button>
+        </div>
+      </div>
+
+      <div class="workspace">
+        <div>
+          <div id="grid" class="grid" aria-label="Pads, pad 1 is bottom-left"></div>
+          <p class="hint">Tap a pad to play it. Keys: <kbd>Z X C V</kbd> bottom row … <kbd>1 2 3 4</kbd> top row. Loops
+            keep playing until you tap them again.</p>
+        </div>
+        <aside id="detail" class="detail"></aside>
+      </div>
+
+      <div class="timeline-wrap">
+        <div class="timeline-head">
+          <h3>Every candidate in the song</h3>
+          <p class="meta">Solid marks are on pads, faint ones are backups. Click one to hear it, then
+            <b>Put on pad</b> to swap it onto the selected pad.</p>
+        </div>
+        <div id="timeline" class="timeline"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>Releasing music with uncleared samples can require permission from the rights holders. Only build kits from
+      audio you own or have permission to sample.</p>
+  </footer>
+  <dialog id="export-dialog" class="export">
+    <form method="dialog" class="export-body">
+      <h3>Export for Koala Sampler</h3>
+      <p class="meta">Numbered WAVs in pad order, one folder per bank, plus a README with the BPM, key and pad map.
+        Works with any sampler or DAW too.</p>
+
+      <fieldset class="opts">
+        <legend>Pad order</legend>
+        <label class="choice"><input type="radio" name="ex-order" value="top-first">
+          <span><b>Top row first</b><span class="meta">Koala fills pads left to right from the top.</span></span></label>
+        <label class="choice"><input type="radio" name="ex-order" value="bottom-first">
+          <span><b>Bottom row first</b><span class="meta">Move, MPC, Ableton: pad 1 is bottom-left.</span></span></label>
+      </fieldset>
+
+      <div class="make-row">
+        <label class="field">Sample rate
+          <select id="ex-rate"><option value="48000">48 kHz (iPhone, Koala)</option><option value="44100">44.1 kHz</option></select>
+        </label>
+        <label class="field">Bit depth
+          <select id="ex-bits"><option value="24">24-bit</option><option value="32">32-bit float</option><option value="16">16-bit</option></select>
+        </label>
+      </div>
+      <label class="rights"><input type="checkbox" id="ex-extras"> Include the backup sounds (Extras folder)</label>
+
+      <p id="ex-status" class="meta" aria-live="polite"></p>
+      <div class="row">
+        <button type="button" id="ex-share" class="btn primary" disabled>Share…</button>
+        <button type="button" id="ex-download" class="btn" disabled>Download .zip</button>
+        <button value="close" class="btn">Close</button>
+      </div>
+
+      <details class="setup">
+        <summary>Loading it into Koala</summary>
+        <ol>
+          <li><b>Share…</b> → <b>Save to Files</b> (or AirDrop it), then tap the .zip in Files to unzip it.</li>
+          <li>In Koala, open the sample browser and go to the kit's <code>Bank_A</code> folder (add the folder as a
+            location if needed).</li>
+          <li>Select all the files and drag them onto the first empty pad: they fill the pads in number order.</li>
+        </ol>
+        <p class="meta">If the kick doesn't land where it is here (bottom-left), switch the pad order.</p>
+      </details>
+      <p class="meta">Want to reopen this kit in Sangisa later? <a href="#" id="ex-sangisa">Save it as a Sangisa kit</a>
+        (zip with kit.json).</p>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

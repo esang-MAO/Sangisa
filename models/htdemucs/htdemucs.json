@@ -1,0 +1,24 @@
+{
+  "name": "htdemucs",
+  "graph": "htdemucs.onnx",
+  "external_data_path": "htdemucs.onnx.data",
+  "weights": "htdemucs.weights.f16",
+  "weights_format": "f16",
+  "sources": [
+    "drums",
+    "bass",
+    "other",
+    "vocals"
+  ],
+  "samplerate": 44100,
+  "audio_channels": 2,
+  "segment_samples": 343980,
+  "nfft": 4096,
+  "hop": 1024,
+  "frames": 336,
+  "outputs": [
+    "sources"
+  ],
+  "weights_mb": 84.7,
+  "version": "4925af1ee0db501a"
+}
