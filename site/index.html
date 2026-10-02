@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="style.css">
   <script src="vendor/jszip-3.10.1.min.js" defer></script>
   <script src="app.js" defer></script>
+  <script src="make.js" defer></script>
 </head>
 <body>
   <header class="top">
@@ -20,27 +21,88 @@
       </div>
     </div>
     <nav class="loaders">
-      <button id="load-demo" class="btn primary">Open demo kit</button>
+      <button id="load-demo" class="btn">Demo kit</button>
       <label class="btn">Open kit .zip<input id="zip-input" type="file" accept=".zip,application/zip" hidden></label>
-      <label class="btn">Open kit folder<input id="dir-input" type="file" webkitdirectory hidden></label>
+      <label class="btn hide-phone">Open kit folder<input id="dir-input" type="file" webkitdirectory hidden></label>
     </nav>
   </header>
 
   <main>
     <section id="welcome" class="welcome">
-      <div class="drop" id="drop">
-        <p class="drop-title">Drop a kit here</p>
-        <p>A kit is the <code>kit.json</code> + <code>slices/</code> folder the <code>sangisa</code> CLI writes, or the
-          zip the <b>Build a kit</b> GitHub Action produces. Everything stays in your browser.</p>
+      <div class="card make">
+        <div class="make-head">
+          <h2>Make a kit</h2>
+          <span id="conn" class="conn" data-state="checking"><i></i><span id="conn-text">Looking for Sangisa…</span></span>
+        </div>
+
+        <label id="song-drop" class="drop song-drop">
+          <input id="song-input" type="file" accept="audio/*,.wav,.wave,.aif,.aiff,.flac,.mp3,.m4a" hidden>
+          <span class="drop-title" id="song-title">Drop a song here</span>
+          <span id="song-sub" class="meta">or tap to choose one · WAV, AIFF, FLAC, MP3, M4A · up to 10 minutes</span>
+        </label>
+
+        <div class="make-row">
+          <label class="field">Pads
+            <select id="pad-split">
+              <option value="drums=6,vocals=4,bass=3,other=3">6 drums · 4 vocals · 3 bass · 3 other</option>
+              <option value="drums=8,vocals=4,bass=2,other=2">8 drums · 4 vocals · 2 bass · 2 other</option>
+              <option value="drums=4,vocals=8,bass=2,other=2">4 drums · 8 vocals · 2 bass · 2 other</option>
+              <option value="drums=4,vocals=4,bass=4,other=4">4 of each</option>
+            </select>
+          </label>
+        </div>
+        <label class="rights"><input type="checkbox" id="rights"> I own this audio or have the rights to sample it</label>
+        <button id="start" class="btn primary big" disabled>Make the kit</button>
+        <p id="make-hint" class="meta"></p>
+
+        <details id="setup" class="setup">
+          <summary>How to start Sangisa on your computer</summary>
+          <p>The song is processed by Sangisa running on your own computer, so it never leaves your devices.
+            Stem separation needs a computer: about 1–3 minutes on an Apple Silicon Mac or NVIDIA GPU,
+            10–15 minutes on other machines.</p>
+          <ol>
+            <li>Once: install <a href="https://docs.astral.sh/uv/getting-started/installation/" target="_blank"
+                rel="noopener">uv</a>, then in a terminal run
+              <pre><code>git clone https://github.com/esang-MAO/Sangisa
+cd Sangisa
+uv sync --extra separation</code></pre></li>
+            <li>Each time: in the <code>Sangisa</code> folder run <pre><code>uv run sangisa serve</code></pre>
+              and open <a href="http://localhost:8765/">http://localhost:8765</a> (this page works too in Chrome,
+              Edge and Firefox).</li>
+            <li>From a phone or tablet on the same Wi-Fi: start it with
+              <pre><code>uv run sangisa serve --lan</code></pre> and scan the code it prints with the phone's camera.</li>
+          </ol>
+          <p class="meta" id="phone-note" hidden>Making kits on the phone itself, without a computer, isn't available yet.</p>
+          <form id="server-form" class="server-form">
+            <label class="field">Sangisa address
+              <input id="server-url" type="url" placeholder="http://localhost:8765" autocomplete="off"></label>
+            <button class="btn small" type="submit">Connect</button>
+          </form>
+        </details>
       </div>
-      <ol class="steps">
-        <li><b>Try the demo.</b> A kit built by the real pipeline from a generated 16-bar song (no copyrighted audio).</li>
-        <li><b>Build your own.</b> In the repo, open <a id="action-link" href="#">Actions → Build a kit</a>, choose
-          <i>Run workflow</i>, and paste a direct link to a song you have the rights to. It takes about 15 minutes on
-          GitHub's CPUs.</li>
-        <li><b>Review it here.</b> Download the <code>sangisa-kit</code> artifact from the finished run and drop the
-          zip onto this page.</li>
-      </ol>
+
+      <div class="side">
+        <div class="card">
+          <h3>Your kits</h3>
+          <ul id="recent" class="recent"><li class="meta">Kits you make show up here.</li></ul>
+        </div>
+        <div class="card drop kit-drop" id="drop">
+          <h3>Open a kit</h3>
+          <p class="meta">Drop a kit <code>.zip</code> here (from <code>sangisa</code> or the
+            <a id="action-link" href="#">Build a kit</a> GitHub Action), or try the <b>Demo kit</b>: built by the real
+            pipeline from a generated song.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="progress" class="card progress" hidden>
+      <h2 id="prog-title"></h2>
+      <p id="prog-sub" class="meta"></p>
+      <ol id="prog-stages" class="stages"></ol>
+      <p id="prog-note" class="meta"></p>
+      <div class="row">
+        <button id="prog-back" class="btn small">Back</button>
+      </div>
     </section>
 
     <section id="kit" class="kit" hidden>
@@ -50,8 +112,10 @@
           <p id="kit-meta" class="meta"></p>
         </div>
         <div class="kit-actions">
+          <button id="back-home" class="btn small">← Kits</button>
           <div id="banks" class="banks" role="tablist"></div>
           <button id="stop-all" class="btn small">Stop all</button>
+          <button id="save-zip" class="btn small">Download kit .zip</button>
           <button id="save-json" class="btn small">Save kit.json</button>
         </div>
       </div>
